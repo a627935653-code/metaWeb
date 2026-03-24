@@ -1,0 +1,72 @@
+@import "./base.css";
+
+.logo {
+  height: 6em;
+  padding: 1.5em;
+  will-change: filter;
+  transition: filter 300ms;
+}
+.logo:hover {
+  filter: drop-shadow(0 0 2em #646cffaa);
+}
+.logo.react:hover {
+  filter: drop-shadow(0 0 2em #61dafbaa);
+}
+
+@keyframes logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  a:nth-of-type(2) .logo {
+    animation: logo-spin infinite 20s linear;
+  }
+}
+
+.card {
+  padding: 2em;
+}
+
+.read-the-docs {
+  color: #888;
+}
+
+.ant-modal {
+  width: 80% !important;
+  max-width: 1200px;
+}
+.custom-modal.ant-modal {
+  width: 600px !important;
+}
+.pokemon-modal {
+  width: 90% !important;
+  max-width: 1800px;
+}
+
+.add-ant-modal {
+  max-width: 800px;
+}
+
+.satics-product-list .ant-table-cell {
+  padding: 0 !important;
+}
+
+.ant-table td .full-height-div {
+  display: table;
+  width: 100%;
+  height: 100%;
+}
+
+.ant-btn {
+  outline: none; /* 去除默认的轮廓 */
+}
+
+.ant-btn:focus {
+  box-shadow: none; /* 去除聚焦时的阴影 */
+  border-color: transparent; /* 设置边框颜色为透明 */
+}
