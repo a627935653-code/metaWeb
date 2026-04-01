@@ -8,6 +8,7 @@ export interface UserInfoType {
     name: string;
     role_id: number;
     is_admin: number;
+    type?: number;
   };
 }
 

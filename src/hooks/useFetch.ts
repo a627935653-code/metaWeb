@@ -53,7 +53,7 @@ export default function useFetch() {
           response?.code !== "88888" &&
           response?.code !== 88888
         ) {
-          messageApi.error(response?.error || "unknown error");
+          messageApi.error(response?.msg || "unknown error");
         }
         return response;
       } catch (error) {

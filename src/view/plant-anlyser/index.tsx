@@ -18,6 +18,7 @@ import {
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import useFetch from "@/hooks/useFetch";
+import useAuth from "@/hooks/useAuth";
 import { ExclamationCircleFilled } from "@ant-design/icons";
 
 const { Title, Text } = Typography;
@@ -498,6 +499,8 @@ const retentionColumns: ColumnsType<RetentionRow> = [
 /** ===================== Page ===================== */
 function PlantAnlyser() {
   const { fetchPost, fetchGET } = useFetch();
+  const { userInfo } = useAuth();
+  const hideRestrictedSections = Number(userInfo?.user?.type) === 2;
   const [kpis, setKpis] = useState<Kpi[]>([]);
   const [trendData, setTrendData] = useState<TrendPoint[]>([]);
   const [tableData, setTableData] = useState<TableRow[]>([]);
@@ -868,82 +871,86 @@ function PlantAnlyser() {
 
   return (
     <div style={{ padding: 16, background: "#f5f7fb", minHeight: "100vh" }}>
-      {/* 核心指标（带筛选） */}
-      <Card
-        style={{ borderRadius: 16, border: "none", boxShadow: "0 12px 34px rgba(0,0,0,0.08)" }}
-        styles={{ body: { padding: 16 } }}
-      >
-        <HeaderRow
-          title="核心指标"
-          right={
-            <FilterBar
-              range={kpiRange}
-              setRange={setKpiRange}
-              materialType={kpiMaterialType}
-              setMaterialType={(v) => setKpiMaterialType(v as string[] | undefined)}
-              materialOptions={[
-                { value: "1", label: "图文" },
-                { value: "2", label: "视频" },
-                { value: "3", label: "轮播" },
-                { value: "4", label: "动态素材" },
-              ]}
-              buyer={kpiBuyer}
-              setBuyer={(v) => setKpiBuyer(v ? (Array.isArray(v) ? v : [v]) : [])}
-              buyerMode="multiple"
-              buyerOptions={personnelOptions}
-              channel={kpiChannel}
-              setChannel={(v) => setKpiChannel(v || [])}
-              channelOptions={platformOptions}
-              onReset={() => {
-                setKpiRange(null);
-                setKpiMaterialType(undefined);
-                setKpiBuyer([]);
-                setKpiChannel([]);
-              }}
+      {hideRestrictedSections ? null : (
+        <>
+          {/* 核心指标（带筛选） */}
+          <Card
+            style={{ borderRadius: 16, border: "none", boxShadow: "0 12px 34px rgba(0,0,0,0.08)" }}
+            styles={{ body: { padding: 16 } }}
+          >
+            <HeaderRow
+              title="核心指标"
+              right={
+                <FilterBar
+                  range={kpiRange}
+                  setRange={setKpiRange}
+                  materialType={kpiMaterialType}
+                  setMaterialType={(v) => setKpiMaterialType(v as string[] | undefined)}
+                  materialOptions={[
+                    { value: "1", label: "图文" },
+                    { value: "2", label: "视频" },
+                    { value: "3", label: "轮播" },
+                    { value: "4", label: "动态素材" },
+                  ]}
+                  buyer={kpiBuyer}
+                  setBuyer={(v) => setKpiBuyer(v ? (Array.isArray(v) ? v : [v]) : [])}
+                  buyerMode="multiple"
+                  buyerOptions={personnelOptions}
+                  channel={kpiChannel}
+                  setChannel={(v) => setKpiChannel(v || [])}
+                  channelOptions={platformOptions}
+                  onReset={() => {
+                    setKpiRange(null);
+                    setKpiMaterialType(undefined);
+                    setKpiBuyer([]);
+                    setKpiChannel([]);
+                  }}
+                />
+              }
             />
-          }
-        />
 
-        <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
-          {kpis.map((m) => (
-            <Col key={m.key} xs={24} sm={12} md={8} lg={6}>
-              <KpiCard {...m} />
-            </Col>
-          ))}
-        </Row>
-      </Card>
+            <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
+              {kpis.map((m) => (
+                <Col key={m.key} xs={24} sm={12} md={8} lg={6}>
+                  <KpiCard {...m} />
+                </Col>
+              ))}
+            </Row>
+          </Card>
 
-      {/* 关键趋势（带筛选 + 折线 + 底部按钮居中 + 颜色一致） */}
-      <KeyTrendSection
-        data={trendData}
-        rightToolbar={
-          <FilterBar
-            range={trendRange}
-            setRange={setTrendRange}
-            materialType={trendMaterialType}
-            setMaterialType={(v) => setTrendMaterialType(v as string[] | undefined)}
-            materialOptions={[
-              { value: "1", label: "图文" },
-              { value: "2", label: "视频" },
-              { value: "3", label: "轮播" },
-              { value: "4", label: "动态素材" },
-            ]}
-            buyer={trendBuyer}
-            setBuyer={(v) => setTrendBuyer(v ? (Array.isArray(v) ? v : [v]) : [])}
-            buyerMode="multiple"
-            buyerOptions={personnelOptions}
-            channel={trendChannel}
-            setChannel={(v) => setTrendChannel(v || [])}
-            channelOptions={platformOptions}
-            onReset={() => {
-              setTrendRange(null);
-              setTrendMaterialType(undefined);
-              setTrendBuyer([]);
-              setTrendChannel([]);
-            }}
+          {/* 关键趋势（带筛选 + 折线 + 底部按钮居中 + 颜色一致） */}
+          <KeyTrendSection
+            data={trendData}
+            rightToolbar={
+              <FilterBar
+                range={trendRange}
+                setRange={setTrendRange}
+                materialType={trendMaterialType}
+                setMaterialType={(v) => setTrendMaterialType(v as string[] | undefined)}
+                materialOptions={[
+                  { value: "1", label: "图文" },
+                  { value: "2", label: "视频" },
+                  { value: "3", label: "轮播" },
+                  { value: "4", label: "动态素材" },
+                ]}
+                buyer={trendBuyer}
+                setBuyer={(v) => setTrendBuyer(v ? (Array.isArray(v) ? v : [v]) : [])}
+                buyerMode="multiple"
+                buyerOptions={personnelOptions}
+                channel={trendChannel}
+                setChannel={(v) => setTrendChannel(v || [])}
+                channelOptions={platformOptions}
+                onReset={() => {
+                  setTrendRange(null);
+                  setTrendMaterialType(undefined);
+                  setTrendBuyer([]);
+                  setTrendChannel([]);
+                }}
+              />
+            }
           />
-        }
-      />
+        </>
+      )}
 
       {/* 投放总览（带筛选） */}
       <Card
@@ -1008,68 +1015,70 @@ function PlantAnlyser() {
         </div>
       </Card>
 
-      <Card
-        style={{ marginTop: 16, borderRadius: 16, border: "none", boxShadow: "0 12px 34px rgba(0,0,0,0.08)" }}
-        styles={{ body: { padding: 16 } }}
-      >
-        <HeaderRow
-          title="留存周期ROAS"
-          subtitle="为了和META数据维度对齐 所有数据来源自后台的的用户数都是以注册有广告ID并且这些广告ID属于META当日投放广告的子集"
-          right={
-            <Space size={8} wrap>
-              <FilterBar
-                range={retentionRange}
-                setRange={setRetentionRange}
-                materialType={retentionMaterialType}
-                setMaterialType={(v) => setRetentionMaterialType(v as string[] | undefined)}
-                materialOptions={[
-                  { value: "1", label: "图文" },
-                  { value: "2", label: "视频" },
-                  { value: "3", label: "轮播" },
-                  { value: "4", label: "动态素材" },
-                ]}
-                buyer={retentionBuyer}
-                setBuyer={(v) => setRetentionBuyer(v ? (Array.isArray(v) ? v : [v]) : [])}
-                buyerMode="multiple"
-                buyerOptions={personnelOptions}
-                channel={retentionChannel}
-                setChannel={(v) => setRetentionChannel(v || [])}
-                channelOptions={platformOptions}
-                onReset={() => {
-                  setRetentionRange(null);
-                  setRetentionMaterialType(undefined);
-                  setRetentionBuyer([]);
-                  setRetentionChannel([]);
-                }}
-              />
-              <Button onClick={onExportRetention}>导出</Button>
-            </Space>
-          }
-        />
-        <div style={{ marginTop: 12 }}>
-          <Table<RetentionRow>
-            columns={retentionColumns}
-            dataSource={retentionData}
-            rowKey={(record) => record.key || record.date}
-            scroll={{ x: 1900, y: 500 }}
-            loading={retentionLoading}
-            pagination={{
-              current: retentionPagination.page,
-              pageSize: retentionPagination.limit,
-              total: retentionPagination.total,
-              showSizeChanger: true,
-              pageSizeOptions: ["10", "20", "50", "100"],
-              onChange: (page, pageSize) => {
-                setRetentionPagination((prev) => ({
-                  ...prev,
-                  page,
-                  limit: pageSize,
-                }));
-              },
-            }}
+      {hideRestrictedSections ? null : (
+        <Card
+          style={{ marginTop: 16, borderRadius: 16, border: "none", boxShadow: "0 12px 34px rgba(0,0,0,0.08)" }}
+          styles={{ body: { padding: 16 } }}
+        >
+          <HeaderRow
+            title="留存周期ROAS"
+            subtitle="为了和META数据维度对齐 所有数据来源自后台的的用户数都是以注册有广告ID并且这些广告ID属于META当日投放广告的子集"
+            right={
+              <Space size={8} wrap>
+                <FilterBar
+                  range={retentionRange}
+                  setRange={setRetentionRange}
+                  materialType={retentionMaterialType}
+                  setMaterialType={(v) => setRetentionMaterialType(v as string[] | undefined)}
+                  materialOptions={[
+                    { value: "1", label: "图文" },
+                    { value: "2", label: "视频" },
+                    { value: "3", label: "轮播" },
+                    { value: "4", label: "动态素材" },
+                  ]}
+                  buyer={retentionBuyer}
+                  setBuyer={(v) => setRetentionBuyer(v ? (Array.isArray(v) ? v : [v]) : [])}
+                  buyerMode="multiple"
+                  buyerOptions={personnelOptions}
+                  channel={retentionChannel}
+                  setChannel={(v) => setRetentionChannel(v || [])}
+                  channelOptions={platformOptions}
+                  onReset={() => {
+                    setRetentionRange(null);
+                    setRetentionMaterialType(undefined);
+                    setRetentionBuyer([]);
+                    setRetentionChannel([]);
+                  }}
+                />
+                <Button onClick={onExportRetention}>导出</Button>
+              </Space>
+            }
           />
-        </div>
-      </Card>
+          <div style={{ marginTop: 12 }}>
+            <Table<RetentionRow>
+              columns={retentionColumns}
+              dataSource={retentionData}
+              rowKey={(record) => record.key || record.date}
+              scroll={{ x: 1900, y: 500 }}
+              loading={retentionLoading}
+              pagination={{
+                current: retentionPagination.page,
+                pageSize: retentionPagination.limit,
+                total: retentionPagination.total,
+                showSizeChanger: true,
+                pageSizeOptions: ["10", "20", "50", "100"],
+                onChange: (page, pageSize) => {
+                  setRetentionPagination((prev) => ({
+                    ...prev,
+                    page,
+                    limit: pageSize,
+                  }));
+                },
+              }}
+            />
+          </div>
+        </Card>
+      )}
     </div>
   );
 }
