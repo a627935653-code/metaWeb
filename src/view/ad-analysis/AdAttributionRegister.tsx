@@ -294,7 +294,8 @@ function AdAttributionRegister() {
       channels: dailyChannel,
     });
     if (dailyFilterKeyRef.current !== filterKey && dailyPagination.page !== 1) {
-      setDailyPagination((prev) => ({ ...prev, page: 1 }));
+      setDailyTableData([]);
+      setDailyPagination((prev) => ({ ...prev, page: 1, total: 0 }));
       return;
     }
     dailyFilterKeyRef.current = filterKey;
@@ -328,6 +329,10 @@ function AdAttributionRegister() {
           setDailyTableData([]);
           setDailyPagination((prev) => ({ ...prev, total: 0 }));
         }
+      } catch {
+        if (requestId !== dailyRequestIdRef.current) return;
+        setDailyTableData([]);
+        setDailyPagination((prev) => ({ ...prev, total: 0 }));
       } finally {
         if (requestId === dailyRequestIdRef.current) {
           setDailyTableLoading(false);
@@ -348,7 +353,8 @@ function AdAttributionRegister() {
       channels: channel,
     });
     if (detailFilterKeyRef.current !== filterKey && pagination.page !== 1) {
-      setPagination((prev) => ({ ...prev, page: 1 }));
+      setTableData([]);
+      setPagination((prev) => ({ ...prev, page: 1, total: 0 }));
       return;
     }
     detailFilterKeyRef.current = filterKey;
@@ -373,7 +379,7 @@ function AdAttributionRegister() {
           const rawList = Array.isArray(res.data) ? res.data : res.data?.data || [];
           const mapped = rawList.map((item: AdAttributionRegisterRow, index: number) => ({
             ...item,
-            key: item.key || item.ad_id || item.ad_name || String(index + 1),
+            key: item.key || (item.ad_id && item.date ? `${item.ad_id}_${item.date}` : undefined) || String(index + 1),
           }));
           const page = res.page ?? pagination.page;
           const limit = res.limit ?? pagination.limit;
@@ -384,6 +390,10 @@ function AdAttributionRegister() {
           setTableData([]);
           setPagination((prev) => ({ ...prev, total: 0 }));
         }
+      } catch {
+        if (requestId !== detailRequestIdRef.current) return;
+        setTableData([]);
+        setPagination((prev) => ({ ...prev, total: 0 }));
       } finally {
         if (requestId === detailRequestIdRef.current) {
           setTableLoading(false);
@@ -427,7 +437,7 @@ function AdAttributionRegister() {
           <Table<AdAttributionRegisterDailyRow>
             columns={dailyColumns}
             dataSource={dailyTableData}
-            rowKey={(record) => record.key || record.date}
+            rowKey={(record) => record.key}
             scroll={{ x: 2400, y: 600 }}
             loading={dailyTableLoading}
             pagination={{
@@ -487,7 +497,7 @@ function AdAttributionRegister() {
           <Table<AdAttributionRegisterRow>
             columns={detailColumns}
             dataSource={tableData}
-            rowKey={(record) => record.key || record.ad_id || record.ad_name}
+            rowKey={(record) => record.key}
             scroll={{ x: 2400, y: 600 }}
             loading={tableLoading}
             pagination={{

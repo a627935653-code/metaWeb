@@ -312,7 +312,8 @@ function AdAttributionShopping() {
       channels: dailyChannel,
     });
     if (dailyFilterKeyRef.current !== filterKey && dailyPagination.page !== 1) {
-      setDailyPagination((prev) => ({ ...prev, page: 1 }));
+      setDailyTableData([]);
+      setDailyPagination((prev) => ({ ...prev, page: 1, total: 0 }));
       return;
     }
     dailyFilterKeyRef.current = filterKey;
@@ -346,6 +347,10 @@ function AdAttributionShopping() {
           setDailyTableData([]);
           setDailyPagination((prev) => ({ ...prev, total: 0 }));
         }
+      } catch {
+        if (requestId !== dailyRequestIdRef.current) return;
+        setDailyTableData([]);
+        setDailyPagination((prev) => ({ ...prev, total: 0 }));
       } finally {
         if (requestId === dailyRequestIdRef.current) {
           setDailyTableLoading(false);
@@ -366,7 +371,8 @@ function AdAttributionShopping() {
       channels: channel,
     });
     if (detailFilterKeyRef.current !== filterKey && pagination.page !== 1) {
-      setPagination((prev) => ({ ...prev, page: 1 }));
+      setTableData([]);
+      setPagination((prev) => ({ ...prev, page: 1, total: 0 }));
       return;
     }
     detailFilterKeyRef.current = filterKey;
@@ -391,7 +397,7 @@ function AdAttributionShopping() {
           const rawList = Array.isArray(res.data) ? res.data : res.data?.data || [];
           const mapped = rawList.map((item: AdAttributionShoppingRow, index: number) => ({
             ...item,
-            key: item.key || item.ad_id || item.ad_name || String(index + 1),
+            key: item.key || (item.ad_id && item.date ? `${item.ad_id}_${item.date}` : undefined) || String(index + 1),
           }));
           const page = res.page ?? pagination.page;
           const limit = res.limit ?? pagination.limit;
@@ -402,6 +408,10 @@ function AdAttributionShopping() {
           setTableData([]);
           setPagination((prev) => ({ ...prev, total: 0 }));
         }
+      } catch {
+        if (requestId !== detailRequestIdRef.current) return;
+        setTableData([]);
+        setPagination((prev) => ({ ...prev, total: 0 }));
       } finally {
         if (requestId === detailRequestIdRef.current) {
           setTableLoading(false);
@@ -505,7 +515,7 @@ function AdAttributionShopping() {
           <Table<AdAttributionShoppingRow>
             columns={detailColumns}
             dataSource={tableData}
-            rowKey={(record) => record.key || record.ad_id || record.ad_name}
+            rowKey={(record) => record.key}
             scroll={{ x: 2200, y: 600 }}
             loading={tableLoading}
             pagination={{

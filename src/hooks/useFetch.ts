@@ -48,8 +48,12 @@ export default function useFetch() {
           setUserInfo({});
           navigate("/login");
         }
-        if (response?.code !== 0) {
-          messageApi.error(response?.msg || "unknown error");
+        if (
+          response?.code !== 0 &&
+          response?.code !== "88888" &&
+          response?.code !== 88888
+        ) {
+          messageApi.error(response?.error || "unknown error");
         }
         return response;
       } catch (error) {

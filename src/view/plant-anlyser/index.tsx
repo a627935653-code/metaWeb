@@ -737,7 +737,8 @@ function PlantAnlyser() {
       channels: tableChannel,
     });
     if (tableFilterKeyRef.current !== filterKey && tablePagination.page !== 1) {
-      setTablePagination((prev) => ({ ...prev, page: 1 }));
+      setTableData([]);
+      setTablePagination((prev) => ({ ...prev, page: 1, total: 0 }));
       return;
     }
     tableFilterKeyRef.current = filterKey;
@@ -772,6 +773,10 @@ function PlantAnlyser() {
           setTableData([]);
           setTablePagination((prev) => ({ ...prev, total: 0 }));
         }
+      } catch {
+        if (requestId !== tableRequestIdRef.current) return;
+        setTableData([]);
+        setTablePagination((prev) => ({ ...prev, total: 0 }));
       } finally {
         if (requestId === tableRequestIdRef.current) {
           setTableLoading(false);
@@ -799,7 +804,8 @@ function PlantAnlyser() {
       channels: retentionChannel,
     });
     if (retentionFilterKeyRef.current !== filterKey && retentionPagination.page !== 1) {
-      setRetentionPagination((prev) => ({ ...prev, page: 1 }));
+      setRetentionData([]);
+      setRetentionPagination((prev) => ({ ...prev, page: 1, total: 0 }));
       return;
     }
     retentionFilterKeyRef.current = filterKey;
@@ -838,6 +844,10 @@ function PlantAnlyser() {
           setRetentionData([]);
           setRetentionPagination((prev) => ({ ...prev, total: 0 }));
         }
+      } catch {
+        if (requestId !== retentionRequestIdRef.current) return;
+        setRetentionData([]);
+        setRetentionPagination((prev) => ({ ...prev, total: 0 }));
       } finally {
         if (requestId === retentionRequestIdRef.current) {
           setRetentionLoading(false);
