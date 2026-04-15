@@ -1,4 +1,4 @@
-import { Button, DatePicker, Input, Select, Space, Table, Typography } from "antd";
+import { Button, DatePicker, Input, Modal, Select, Space, Table, Typography } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useFetch from "@/hooks/useFetch";
@@ -81,6 +81,7 @@ const normalizeRange = (range: any) => {
 
 const ROAS_PAY_PATH = "/meta/roaspay";
 const ROAS_PAY_SUM_PATH = "/meta/roaspaysum";
+const PAY_ORDERS_DETAIL_PATH = "/meta/payOrdersList";
 
 function AdAttributionShopping() {
   const { fetchPost, fetchGET } = useFetch();
@@ -102,10 +103,32 @@ function AdAttributionShopping() {
   const [tableData, setTableData] = useState<AdAttributionShoppingRow[]>([]);
   const [tableLoading, setTableLoading] = useState(false);
   const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0 });
+  const [payOrdersModalOpen, setPayOrdersModalOpen] = useState(false);
+  const [payOrdersLoading, setPayOrdersLoading] = useState(false);
+  const [payOrdersData, setPayOrdersData] = useState<
+    Array<{ key: string; user: string; click_time: string; pay_amount: number; pay_time: string }>
+  >([]);
+  const [payOrdersPagination, setPayOrdersPagination] = useState({ page: 1, limit: 20, total: 0 });
+  const [payOrdersContext, setPayOrdersContext] = useState<{ ad_id: string; date: string } | null>(null);
   const dailyFilterKeyRef = useRef<string>("");
   const detailFilterKeyRef = useRef<string>("");
   const dailyRequestIdRef = useRef(0);
   const detailRequestIdRef = useRef(0);
+  const payOrdersRequestIdRef = useRef(0);
+
+  const openPayOrdersModal = useCallback((record: AdAttributionShoppingRow) => {
+    setPayOrdersContext({ ad_id: record.ad_id, date: record.date });
+    setPayOrdersData([]);
+    setPayOrdersPagination((prev) => ({ ...prev, page: 1, total: 0 }));
+    setPayOrdersModalOpen(true);
+  }, []);
+
+  const closePayOrdersModal = useCallback(() => {
+    setPayOrdersModalOpen(false);
+    setPayOrdersContext(null);
+    setPayOrdersData([]);
+    setPayOrdersPagination((prev) => ({ ...prev, page: 1, total: 0 }));
+  }, []);
 
   const personnelPlatformParam = useMemo(() => {
     const raw = [dailyChannel, channel].flat();
@@ -182,7 +205,31 @@ function AdAttributionShopping() {
     { title: "广告花费", dataIndex: "spend", key: "spend", width: 120, render: (v: number) => usd(v) },
     { title: "充值用户数", dataIndex: "payUsers", key: "payUsers", width: 120, render: (v: number) => formatNumber(v) },
     { title: "新客充值用户数", dataIndex: "newPayUsers", key: "newPayUsers", width: 140, render: (v: number) => formatNumber(v) },
-    { title: "充值笔数", dataIndex: "payOrders", key: "payOrders", width: 120, render: (v: number) => formatNumber(v) },
+    {
+      title: "充值笔数",
+      dataIndex: "payOrders",
+      key: "payOrders",
+      width: 120,
+      render: (v: number, record) => {
+        const num = toNumber(v) || 0;
+        if (num <= 0) return formatNumber(v);
+        return (
+          <Button
+            type="link"
+            style={{
+              padding: 0,
+              height: "auto",
+              lineHeight: 1.2,
+              borderBottom: "2px solid #22c55e",
+              borderRadius: 0,
+            }}
+            onClick={() => openPayOrdersModal(record)}
+          >
+            {formatNumber(v)}
+          </Button>
+        );
+      },
+    },
     { title: "新客充值笔数", dataIndex: "newPayOrders", key: "newPayOrders", width: 140, render: (v: number) => formatNumber(v) },
     { title: "充值金额", dataIndex: "payAmount", key: "payAmount", width: 120, render: (v: number) => usd(v) },
     { title: "新客充值金额", dataIndex: "newPayAmount", key: "newPayAmount", width: 140, render: (v: number) => usd(v) },
@@ -422,6 +469,78 @@ function AdAttributionShopping() {
     fetchTableData();
   }, [fetchPost, range, adName, adType, buyer, channel, pagination.page, pagination.limit]);
 
+  const payOrdersColumns: ColumnsType<{
+    key: string;
+    user: string;
+    click_time: string;
+    pay_amount: number;
+    pay_time: string;
+  }> = useMemo(
+    () => [
+      { title: "用户", dataIndex: "user", key: "user", width: 180 },
+      { title: "点击广告时间", dataIndex: "click_time", key: "click_time", width: 180 },
+      { title: "充值金额", dataIndex: "pay_amount", key: "pay_amount", width: 140, render: (v: number) => usd(v) },
+      { title: "充值时间", dataIndex: "pay_time", key: "pay_time", width: 180 },
+    ],
+    []
+  );
+
+  useEffect(() => {
+    if (!payOrdersModalOpen || !payOrdersContext) return;
+    const fetchPayOrders = async () => {
+      const requestId = ++payOrdersRequestIdRef.current;
+      setPayOrdersLoading(true);
+      try {
+        const res = await fetchPost({
+          path: PAY_ORDERS_DETAIL_PATH,
+          body: JSON.stringify({
+            ad_id: payOrdersContext.ad_id,
+            date: payOrdersContext.date,
+            page: payOrdersPagination.page,
+            limit: payOrdersPagination.limit,
+          }),
+        });
+        if (requestId !== payOrdersRequestIdRef.current) return;
+        if (res?.code === 0 && res?.data) {
+          const rawList = Array.isArray(res.data) ? res.data : res.data?.list || res.data?.data || [];
+          const mapped = rawList.map((item: any, index: number) => ({
+            key:
+              item?.key ||
+              item?.id ||
+              `${payOrdersContext.ad_id}_${payOrdersContext.date}_${index + 1}`,
+            user: item?.user ?? item?.uid ?? item?.user_id ?? "-",
+            click_time: item?.click_time ?? item?.click_ad_time ?? item?.clickAt ?? "-",
+            pay_amount: toNumber(item?.pay_amount ?? item?.amount) || 0,
+            pay_time: item?.pay_time ?? item?.payAt ?? "-",
+          }));
+          const page = res.page ?? payOrdersPagination.page;
+          const limit = res.limit ?? payOrdersPagination.limit;
+          const total = res.total ?? res.data?.total ?? rawList.length;
+          setPayOrdersData(mapped);
+          setPayOrdersPagination({ page, limit, total });
+        } else {
+          setPayOrdersData([]);
+          setPayOrdersPagination((prev) => ({ ...prev, total: 0 }));
+        }
+      } catch {
+        if (requestId !== payOrdersRequestIdRef.current) return;
+        setPayOrdersData([]);
+        setPayOrdersPagination((prev) => ({ ...prev, total: 0 }));
+      } finally {
+        if (requestId === payOrdersRequestIdRef.current) {
+          setPayOrdersLoading(false);
+        }
+      }
+    };
+    fetchPayOrders();
+  }, [
+    fetchPost,
+    payOrdersModalOpen,
+    payOrdersContext,
+    payOrdersPagination.page,
+    payOrdersPagination.limit,
+  ]);
+
   return (
     <div style={{ padding: 16 }}>
       <Title level={4} style={{ margin: 0 }}>购物广告分析</Title>
@@ -531,6 +650,33 @@ function AdAttributionShopping() {
           />
         </div>
       </div>
+
+      <Modal
+        title={`充值明细（${payOrdersContext?.ad_id || "-"} / ${payOrdersContext?.date || "-"}）`}
+        open={payOrdersModalOpen}
+        onCancel={closePayOrdersModal}
+        footer={null}
+        width={900}
+        destroyOnClose
+      >
+        <Table
+          columns={payOrdersColumns}
+          dataSource={payOrdersData}
+          rowKey={(record) => record.key}
+          loading={payOrdersLoading}
+          scroll={{ x: 760, y: 520 }}
+          pagination={{
+            current: payOrdersPagination.page,
+            pageSize: payOrdersPagination.limit,
+            total: payOrdersPagination.total || payOrdersData.length,
+            showSizeChanger: true,
+            pageSizeOptions: ["10", "20", "50", "100"],
+            onChange: (page, pageSize) => {
+              setPayOrdersPagination((prev) => ({ ...prev, page, limit: pageSize }));
+            },
+          }}
+        />
+      </Modal>
     </div>
   );
 }
