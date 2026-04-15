@@ -5,6 +5,7 @@ import ProfitLossRanking from "@/view/mark-admin/ProfitLossRanking";
 import AdAttributionShopping from "@/view/ad-analysis/AdAttributionShopping";
 import AdAttributionRegister from "@/view/ad-analysis/AdAttributionRegister";
 import Personnel from "@/view/personnel";
+import AdManagement from "@/view/ad-management";
 
 type MenuItem = Required<MenuProps>["items"][number];
 
@@ -43,6 +44,18 @@ export const RouteList: MenuItemType[] = [
         key: "AdAttributionRegister",
         label: "注册广告分析",
         component: <AdAttributionRegister />,
+      },
+    ],
+  },
+  {
+    key: "AdManagement",
+    icon: <HouseIcon className="w-4 h-4" />,
+    label: "广告管理",
+    children: [
+      {
+        key: "AdList",
+        label: "广告列表",
+        component: <AdManagement />,
       },
     ],
   },
