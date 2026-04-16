@@ -4,6 +4,8 @@ import PlantAnlyser from "@/view/plant-anlyser";
 import ProfitLossRanking from "@/view/mark-admin/ProfitLossRanking";
 import AdAttributionShopping from "@/view/ad-analysis/AdAttributionShopping";
 import AdAttributionRegister from "@/view/ad-analysis/AdAttributionRegister";
+import AdAttributionShoppingMeta from "@/view/ad-analysis/AdAttributionShoppingMeta";
+import AdAttributionRegisterMeta from "@/view/ad-analysis/AdAttributionRegisterMeta";
 import Personnel from "@/view/personnel";
 import AdManagement from "@/view/ad-management";
 
@@ -44,6 +46,16 @@ export const RouteList: MenuItemType[] = [
         key: "AdAttributionRegister",
         label: "注册广告分析",
         component: <AdAttributionRegister />,
+      },
+      {
+        key: "AdAttributionShoppingMeta",
+        label: "购物广告分析(meta)",
+        component: <AdAttributionShoppingMeta />,
+      },
+      {
+        key: "AdAttributionRegisterMeta",
+        label: "注册广告分析(meta)",
+        component: <AdAttributionRegisterMeta />,
       },
     ],
   },
