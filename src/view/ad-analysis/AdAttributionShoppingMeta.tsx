@@ -81,7 +81,7 @@ const normalizeRange = (range: any) => {
 
 const ROAS_PAY_PATH = "/meta/roaspayContrastMeta";
 const ROAS_PAY_SUM_PATH = "/meta/roaspaysumContrastMeta";
-const PAY_ORDERS_DETAIL_PATH = "/meta/payOrdersList";
+const PAY_ORDERS_DETAIL_PATH = "/meta/payOrdersListMeta";
 
 function AdAttributionShoppingMeta() {
   const { fetchPost, fetchGET } = useFetch();
