@@ -82,6 +82,7 @@ const normalizeRange = (range: any) => {
 const ROAS_PAY_PATH = "/meta/roaspayContrastMeta";
 const ROAS_PAY_SUM_PATH = "/meta/roaspaysumContrastMeta";
 const PAY_ORDERS_DETAIL_PATH = "/meta/payOrdersListMeta";
+const NEW_PAY_USERS_DETAIL_PATH = "/meta/newPayUserListMeta";
 
 function AdAttributionShoppingMeta() {
   const { fetchPost, fetchGET } = useFetch();
@@ -110,11 +111,19 @@ function AdAttributionShoppingMeta() {
   >([]);
   const [payOrdersPagination, setPayOrdersPagination] = useState({ page: 1, limit: 20, total: 0 });
   const [payOrdersContext, setPayOrdersContext] = useState<{ ad_id: string; date: string } | null>(null);
+  const [newPayUsersModalOpen, setNewPayUsersModalOpen] = useState(false);
+  const [newPayUsersLoading, setNewPayUsersLoading] = useState(false);
+  const [newPayUsersData, setNewPayUsersData] = useState<Array<{ key: string; user: string; click_time: string; register_time: string }>>(
+    []
+  );
+  const [newPayUsersPagination, setNewPayUsersPagination] = useState({ page: 1, limit: 20, total: 0 });
+  const [newPayUsersContext, setNewPayUsersContext] = useState<{ ad_id: string; date: string } | null>(null);
   const dailyFilterKeyRef = useRef<string>("");
   const detailFilterKeyRef = useRef<string>("");
   const dailyRequestIdRef = useRef(0);
   const detailRequestIdRef = useRef(0);
   const payOrdersRequestIdRef = useRef(0);
+  const newPayUsersRequestIdRef = useRef(0);
 
   const openPayOrdersModal = useCallback((record: AdAttributionShoppingRow) => {
     setPayOrdersContext({ ad_id: record.ad_id, date: record.date });
@@ -128,6 +137,20 @@ function AdAttributionShoppingMeta() {
     setPayOrdersContext(null);
     setPayOrdersData([]);
     setPayOrdersPagination((prev) => ({ ...prev, page: 1, total: 0 }));
+  }, []);
+
+  const openNewPayUsersModal = useCallback((record: AdAttributionShoppingRow) => {
+    setNewPayUsersContext({ ad_id: record.ad_id, date: record.date });
+    setNewPayUsersData([]);
+    setNewPayUsersPagination((prev) => ({ ...prev, page: 1, total: 0 }));
+    setNewPayUsersModalOpen(true);
+  }, []);
+
+  const closeNewPayUsersModal = useCallback(() => {
+    setNewPayUsersModalOpen(false);
+    setNewPayUsersContext(null);
+    setNewPayUsersData([]);
+    setNewPayUsersPagination((prev) => ({ ...prev, page: 1, total: 0 }));
   }, []);
 
   const personnelPlatformParam = useMemo(() => {
@@ -204,7 +227,31 @@ function AdAttributionShoppingMeta() {
     { title: "日期", dataIndex: "date", key: "date", width: 120 },
     { title: "广告花费", dataIndex: "spend", key: "spend", width: 120, render: (v: number) => usd(v) },
     { title: "充值用户数", dataIndex: "payUsers", key: "payUsers", width: 120, render: (v: number) => formatNumber(v) },
-    { title: "新客充值用户数", dataIndex: "newPayUsers", key: "newPayUsers", width: 140, render: (v: number) => formatNumber(v) },
+    {
+      title: "新客充值用户数",
+      dataIndex: "newPayUsers",
+      key: "newPayUsers",
+      width: 140,
+      render: (v: number, record) => {
+        const num = toNumber(v) || 0;
+        if (num <= 0) return formatNumber(v);
+        return (
+          <Button
+            type="link"
+            style={{
+              padding: 0,
+              height: "auto",
+              lineHeight: 1.2,
+              borderBottom: "2px solid #22c55e",
+              borderRadius: 0,
+            }}
+            onClick={() => openNewPayUsersModal(record)}
+          >
+            {formatNumber(v)}
+          </Button>
+        );
+      },
+    },
     {
       title: "充值笔数",
       dataIndex: "payOrders",
@@ -485,6 +532,20 @@ function AdAttributionShoppingMeta() {
     []
   );
 
+  const newPayUsersColumns: ColumnsType<{
+    key: string;
+    user: string;
+    click_time: string;
+    register_time: string;
+  }> = useMemo(
+    () => [
+      { title: "用户", dataIndex: "user", key: "user", width: 220 },
+      { title: "点击广告时间", dataIndex: "click_time", key: "click_time", width: 260 },
+      { title: "注册时间", dataIndex: "register_time", key: "register_time", width: 260 },
+    ],
+    []
+  );
+
   useEffect(() => {
     if (!payOrdersModalOpen || !payOrdersContext) return;
     const fetchPayOrders = async () => {
@@ -539,6 +600,61 @@ function AdAttributionShoppingMeta() {
     payOrdersContext,
     payOrdersPagination.page,
     payOrdersPagination.limit,
+  ]);
+
+  useEffect(() => {
+    if (!newPayUsersModalOpen || !newPayUsersContext) return;
+    const fetchNewPayUsers = async () => {
+      const requestId = ++newPayUsersRequestIdRef.current;
+      setNewPayUsersLoading(true);
+      try {
+        const res = await fetchPost({
+          path: NEW_PAY_USERS_DETAIL_PATH,
+          body: JSON.stringify({
+            ad_id: newPayUsersContext.ad_id,
+            date: newPayUsersContext.date,
+            page: newPayUsersPagination.page,
+            limit: newPayUsersPagination.limit,
+          }),
+        });
+        if (requestId !== newPayUsersRequestIdRef.current) return;
+        if (res?.code === 0 && res?.data) {
+          const rawList = Array.isArray(res.data) ? res.data : res.data?.list || res.data?.data || [];
+          const mapped = rawList.map((item: any, index: number) => ({
+            key:
+              item?.key ||
+              item?.id ||
+              `${newPayUsersContext.ad_id}_${newPayUsersContext.date}_${index + 1}`,
+            user: item?.user ?? "-",
+            click_time: item?.click_time ??  "-",
+            register_time: item?.register_time  ?? "-",
+          }));
+          const page = res.page ?? newPayUsersPagination.page;
+          const limit = res.limit ?? newPayUsersPagination.limit;
+          const total = res.total ?? res.data?.total ?? rawList.length;
+          setNewPayUsersData(mapped);
+          setNewPayUsersPagination({ page, limit, total });
+        } else {
+          setNewPayUsersData([]);
+          setNewPayUsersPagination((prev) => ({ ...prev, total: 0 }));
+        }
+      } catch {
+        if (requestId !== newPayUsersRequestIdRef.current) return;
+        setNewPayUsersData([]);
+        setNewPayUsersPagination((prev) => ({ ...prev, total: 0 }));
+      } finally {
+        if (requestId === newPayUsersRequestIdRef.current) {
+          setNewPayUsersLoading(false);
+        }
+      }
+    };
+    fetchNewPayUsers();
+  }, [
+    fetchPost,
+    newPayUsersModalOpen,
+    newPayUsersContext,
+    newPayUsersPagination.page,
+    newPayUsersPagination.limit,
   ]);
 
   return (
@@ -673,6 +789,33 @@ function AdAttributionShoppingMeta() {
             pageSizeOptions: ["10", "20", "50", "100"],
             onChange: (page, pageSize) => {
               setPayOrdersPagination((prev) => ({ ...prev, page, limit: pageSize }));
+            },
+          }}
+        />
+      </Modal>
+
+      <Modal
+        title={`新客充值用户明细（${newPayUsersContext?.ad_id || "-"} / ${newPayUsersContext?.date || "-"}）`}
+        open={newPayUsersModalOpen}
+        onCancel={closeNewPayUsersModal}
+        footer={null}
+        width={980}
+        destroyOnClose
+      >
+        <Table
+          columns={newPayUsersColumns}
+          dataSource={newPayUsersData}
+          rowKey={(record) => record.key}
+          loading={newPayUsersLoading}
+          scroll={{ x: 780, y: 520 }}
+          pagination={{
+            current: newPayUsersPagination.page,
+            pageSize: newPayUsersPagination.limit,
+            total: newPayUsersPagination.total || newPayUsersData.length,
+            showSizeChanger: true,
+            pageSizeOptions: ["10", "20", "50", "100"],
+            onChange: (page, pageSize) => {
+              setNewPayUsersPagination((prev) => ({ ...prev, page, limit: pageSize }));
             },
           }}
         />
