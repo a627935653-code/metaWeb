@@ -83,6 +83,7 @@ const ROAS_PAY_PATH = "/meta/roaspayContrastMeta";
 const ROAS_PAY_SUM_PATH = "/meta/roaspaysumContrastMeta";
 const PAY_ORDERS_DETAIL_PATH = "/meta/payOrdersListMeta";
 const NEW_PAY_USERS_DETAIL_PATH = "/meta/newPayUserListMeta";
+const REGISTER_USERS_DETAIL_PATH = "/meta/registerUserListMeta";
 
 function AdAttributionShoppingMeta() {
   const { fetchPost, fetchGET } = useFetch();
@@ -113,17 +114,25 @@ function AdAttributionShoppingMeta() {
   const [payOrdersContext, setPayOrdersContext] = useState<{ ad_id: string; date: string } | null>(null);
   const [newPayUsersModalOpen, setNewPayUsersModalOpen] = useState(false);
   const [newPayUsersLoading, setNewPayUsersLoading] = useState(false);
-  const [newPayUsersData, setNewPayUsersData] = useState<Array<{ key: string; user: string; click_time: string; register_time: string }>>(
+  const [newPayUsersData, setNewPayUsersData] = useState<Array<{ key: string; user: string; click_time: string; register_time: string; first_pay_time: string }>>(
     []
   );
   const [newPayUsersPagination, setNewPayUsersPagination] = useState({ page: 1, limit: 20, total: 0 });
   const [newPayUsersContext, setNewPayUsersContext] = useState<{ ad_id: string; date: string } | null>(null);
+  const [registerUsersModalOpen, setRegisterUsersModalOpen] = useState(false);
+  const [registerUsersLoading, setRegisterUsersLoading] = useState(false);
+  const [registerUsersData, setRegisterUsersData] = useState<Array<{ key: string; user: string; click_time: string; register_time: string }>>(
+    []
+  );
+  const [registerUsersPagination, setRegisterUsersPagination] = useState({ page: 1, limit: 20, total: 0 });
+  const [registerUsersContext, setRegisterUsersContext] = useState<{ ad_id: string; date: string } | null>(null);
   const dailyFilterKeyRef = useRef<string>("");
   const detailFilterKeyRef = useRef<string>("");
   const dailyRequestIdRef = useRef(0);
   const detailRequestIdRef = useRef(0);
   const payOrdersRequestIdRef = useRef(0);
   const newPayUsersRequestIdRef = useRef(0);
+  const registerUsersRequestIdRef = useRef(0);
 
   const openPayOrdersModal = useCallback((record: AdAttributionShoppingRow) => {
     setPayOrdersContext({ ad_id: record.ad_id, date: record.date });
@@ -151,6 +160,20 @@ function AdAttributionShoppingMeta() {
     setNewPayUsersContext(null);
     setNewPayUsersData([]);
     setNewPayUsersPagination((prev) => ({ ...prev, page: 1, total: 0 }));
+  }, []);
+
+  const openRegisterUsersModal = useCallback((record: AdAttributionShoppingRow) => {
+    setRegisterUsersContext({ ad_id: record.ad_id, date: record.date });
+    setRegisterUsersData([]);
+    setRegisterUsersPagination((prev) => ({ ...prev, page: 1, total: 0 }));
+    setRegisterUsersModalOpen(true);
+  }, []);
+
+  const closeRegisterUsersModal = useCallback(() => {
+    setRegisterUsersModalOpen(false);
+    setRegisterUsersContext(null);
+    setRegisterUsersData([]);
+    setRegisterUsersPagination((prev) => ({ ...prev, page: 1, total: 0 }));
   }, []);
 
   const personnelPlatformParam = useMemo(() => {
@@ -284,7 +307,31 @@ function AdAttributionShoppingMeta() {
     { title: "CPA(充值)", dataIndex: "cpaPay", key: "cpaPay", width: 120, render: (v: number) => usd(v) },
     { title: "CPA(新客首充)", dataIndex: "cpaNewPay", key: "cpaNewPay", width: 140, render: (v: number) => usd(v) },
     { title: "新客充值转化率", dataIndex: "newPayRate", key: "newPayRate", width: 140, render: (v: number) => pct(v) },
-    { title: "注册数", dataIndex: "register", key: "register", width: 100, render: (v: number) => formatNumber(v) },
+    {
+      title: "注册数",
+      dataIndex: "register",
+      key: "register",
+      width: 100,
+      render: (v: number, record) => {
+        const num = toNumber(v) || 0;
+        if (num <= 0) return formatNumber(v);
+        return (
+          <Button
+            type="link"
+            style={{
+              padding: 0,
+              height: "auto",
+              lineHeight: 1.2,
+              borderBottom: "2px solid #22c55e",
+              borderRadius: 0,
+            }}
+            onClick={() => openRegisterUsersModal(record)}
+          >
+            {formatNumber(v)}
+          </Button>
+        );
+      },
+    },
     { title: "CPA(注册)", dataIndex: "cpaRegister", key: "cpaRegister", width: 120, render: (v: number) => usd(v) },
     { title: "独立访客", dataIndex: "uv", key: "uv", width: 120, render: (v: number) => formatNumber(v) },
     { title: "去重注册用户数", dataIndex: "registerUv", key: "registerUv", width: 140, render: (v: number) => formatNumber(v) },
@@ -537,6 +584,22 @@ function AdAttributionShoppingMeta() {
     user: string;
     click_time: string;
     register_time: string;
+    first_pay_time: string;
+  }> = useMemo(
+    () => [
+      { title: "用户", dataIndex: "user", key: "user", width: 220 },
+      { title: "点击广告时间", dataIndex: "click_time", key: "click_time", width: 260 },
+      { title: "注册时间", dataIndex: "register_time", key: "register_time", width: 260 },
+      { title: "充值时间", dataIndex: "first_pay_time", key: "first_pay_time", width: 260 },
+    ],
+    []
+  );
+
+  const registerUsersColumns: ColumnsType<{
+    key: string;
+    user: string;
+    click_time: string;
+    register_time: string;
   }> = useMemo(
     () => [
       { title: "用户", dataIndex: "user", key: "user", width: 220 },
@@ -628,6 +691,7 @@ function AdAttributionShoppingMeta() {
             user: item?.user ?? "-",
             click_time: item?.click_time ??  "-",
             register_time: item?.register_time  ?? "-",
+            first_pay_time: item?.first_pay_time ?? "-",
           }));
           const page = res.page ?? newPayUsersPagination.page;
           const limit = res.limit ?? newPayUsersPagination.limit;
@@ -655,6 +719,61 @@ function AdAttributionShoppingMeta() {
     newPayUsersContext,
     newPayUsersPagination.page,
     newPayUsersPagination.limit,
+  ]);
+
+  useEffect(() => {
+    if (!registerUsersModalOpen || !registerUsersContext) return;
+    const fetchRegisterUsers = async () => {
+      const requestId = ++registerUsersRequestIdRef.current;
+      setRegisterUsersLoading(true);
+      try {
+        const res = await fetchPost({
+          path: REGISTER_USERS_DETAIL_PATH,
+          body: JSON.stringify({
+            ad_id: registerUsersContext.ad_id,
+            date: registerUsersContext.date,
+            page: registerUsersPagination.page,
+            limit: registerUsersPagination.limit,
+          }),
+        });
+        if (requestId !== registerUsersRequestIdRef.current) return;
+        if (res?.code === 0 && res?.data) {
+          const rawList = Array.isArray(res.data) ? res.data : res.data?.list || res.data?.data || [];
+          const mapped = rawList.map((item: any, index: number) => ({
+            key:
+              item?.key ||
+              item?.id ||
+              `${registerUsersContext.ad_id}_${registerUsersContext.date}_${index + 1}`,
+            user: item?.user ?? "-",
+            click_time: item?.click_time ?? "-",
+            register_time: item?.register_time ?? "-",
+          }));
+          const page = res.page ?? registerUsersPagination.page;
+          const limit = res.limit ?? registerUsersPagination.limit;
+          const total = res.total ?? res.data?.total ?? rawList.length;
+          setRegisterUsersData(mapped);
+          setRegisterUsersPagination({ page, limit, total });
+        } else {
+          setRegisterUsersData([]);
+          setRegisterUsersPagination((prev) => ({ ...prev, total: 0 }));
+        }
+      } catch {
+        if (requestId !== registerUsersRequestIdRef.current) return;
+        setRegisterUsersData([]);
+        setRegisterUsersPagination((prev) => ({ ...prev, total: 0 }));
+      } finally {
+        if (requestId === registerUsersRequestIdRef.current) {
+          setRegisterUsersLoading(false);
+        }
+      }
+    };
+    fetchRegisterUsers();
+  }, [
+    fetchPost,
+    registerUsersModalOpen,
+    registerUsersContext,
+    registerUsersPagination.page,
+    registerUsersPagination.limit,
   ]);
 
   return (
@@ -799,7 +918,7 @@ function AdAttributionShoppingMeta() {
         open={newPayUsersModalOpen}
         onCancel={closeNewPayUsersModal}
         footer={null}
-        width={980}
+        width={1240}
         destroyOnClose
       >
         <Table
@@ -807,7 +926,7 @@ function AdAttributionShoppingMeta() {
           dataSource={newPayUsersData}
           rowKey={(record) => record.key}
           loading={newPayUsersLoading}
-          scroll={{ x: 780, y: 520 }}
+          scroll={{ x: 1040, y: 520 }}
           pagination={{
             current: newPayUsersPagination.page,
             pageSize: newPayUsersPagination.limit,
@@ -816,6 +935,33 @@ function AdAttributionShoppingMeta() {
             pageSizeOptions: ["10", "20", "50", "100"],
             onChange: (page, pageSize) => {
               setNewPayUsersPagination((prev) => ({ ...prev, page, limit: pageSize }));
+            },
+          }}
+        />
+      </Modal>
+
+      <Modal
+        title={`注册用户明细（${registerUsersContext?.ad_id || "-"} / ${registerUsersContext?.date || "-"}）`}
+        open={registerUsersModalOpen}
+        onCancel={closeRegisterUsersModal}
+        footer={null}
+        width={980}
+        destroyOnClose
+      >
+        <Table
+          columns={registerUsersColumns}
+          dataSource={registerUsersData}
+          rowKey={(record) => record.key}
+          loading={registerUsersLoading}
+          scroll={{ x: 780, y: 520 }}
+          pagination={{
+            current: registerUsersPagination.page,
+            pageSize: registerUsersPagination.limit,
+            total: registerUsersPagination.total || registerUsersData.length,
+            showSizeChanger: true,
+            pageSizeOptions: ["10", "20", "50", "100"],
+            onChange: (page, pageSize) => {
+              setRegisterUsersPagination((prev) => ({ ...prev, page, limit: pageSize }));
             },
           }}
         />
