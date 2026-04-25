@@ -121,7 +121,7 @@ function AdAttributionShoppingMeta() {
   const [newPayUsersContext, setNewPayUsersContext] = useState<{ ad_id: string; date: string } | null>(null);
   const [registerUsersModalOpen, setRegisterUsersModalOpen] = useState(false);
   const [registerUsersLoading, setRegisterUsersLoading] = useState(false);
-  const [registerUsersData, setRegisterUsersData] = useState<Array<{ key: string; user: string; click_time: string; register_time: string }>>(
+  const [registerUsersData, setRegisterUsersData] = useState<Array<{ key: string; user: string; click_time: string; register_time: string; register_ip: string }>>(
     []
   );
   const [registerUsersPagination, setRegisterUsersPagination] = useState({ page: 1, limit: 20, total: 0 });
@@ -600,11 +600,13 @@ function AdAttributionShoppingMeta() {
     user: string;
     click_time: string;
     register_time: string;
+    register_ip: string;
   }> = useMemo(
     () => [
       { title: "用户", dataIndex: "user", key: "user", width: 220 },
       { title: "点击广告时间", dataIndex: "click_time", key: "click_time", width: 260 },
       { title: "注册时间", dataIndex: "register_time", key: "register_time", width: 260 },
+      { title: "注册IP", dataIndex: "register_ip", key: "register_ip", width: 180 },
     ],
     []
   );
@@ -747,6 +749,7 @@ function AdAttributionShoppingMeta() {
             user: item?.user ?? "-",
             click_time: item?.click_time ?? "-",
             register_time: item?.register_time ?? "-",
+            register_ip: item?.register_ip ?? "-",
           }));
           const page = res.page ?? registerUsersPagination.page;
           const limit = res.limit ?? registerUsersPagination.limit;
@@ -945,7 +948,7 @@ function AdAttributionShoppingMeta() {
         open={registerUsersModalOpen}
         onCancel={closeRegisterUsersModal}
         footer={null}
-        width={980}
+        width={1160}
         destroyOnClose
       >
         <Table
@@ -953,7 +956,7 @@ function AdAttributionShoppingMeta() {
           dataSource={registerUsersData}
           rowKey={(record) => record.key}
           loading={registerUsersLoading}
-          scroll={{ x: 780, y: 520 }}
+          scroll={{ x: 960, y: 520 }}
           pagination={{
             current: registerUsersPagination.page,
             pageSize: registerUsersPagination.limit,
