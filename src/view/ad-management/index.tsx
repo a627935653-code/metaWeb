@@ -11,6 +11,7 @@ type AdRow = {
   id: number;
   ad_id: number;
   ad_name: string;
+  pixel_id?: number | null;
   type: AdType;
   created_at: string;
   updated_at: string;
@@ -19,6 +20,7 @@ type AdRow = {
 type AdFormValues = {
   ad_id: number;
   ad_name: string;
+  pixel_id?: number | null;
   type: AdType;
 };
 
@@ -42,6 +44,7 @@ export default function AdManagement() {
     () => [
       { name: "ad_id", label: "广告ID", type: "input" },
       { name: "ad_name", label: "广告名称", type: "input" },
+      { name: "pixel_id", label: "像素ID", type: "input" },
       { name: "type", label: "类型", type: "select", selectList: adTypeOptions },
     ],
     []
@@ -53,6 +56,7 @@ export default function AdManagement() {
       form.setFieldsValue({
         ad_id: record.ad_id,
         ad_name: record.ad_name,
+        pixel_id: record.pixel_id ?? undefined,
         type: record.type,
       });
       setModalOpen(true);
@@ -76,6 +80,7 @@ export default function AdManagement() {
           body: JSON.stringify({
             id: editing.id,
             type: values.type,
+            pixel_id: values.pixel_id ?? undefined,
           }),
         });
         if (res?.code === 0) {
@@ -94,6 +99,13 @@ export default function AdManagement() {
       { title: "ID", dataIndex: "id", key: "id", width: 90 },
       { title: "广告ID", dataIndex: "ad_id", key: "ad_id", width: 160 },
       { title: "广告名称", dataIndex: "ad_name", key: "ad_name", width: 220 },
+      {
+        title: "像素ID",
+        dataIndex: "pixel_id",
+        key: "pixel_id",
+        width: 160,
+        render: (v: AdRow["pixel_id"]) => (v == null ? "-" : v),
+      },
       {
         title: "类型",
         dataIndex: "type",
@@ -145,6 +157,10 @@ export default function AdManagement() {
 
           <Form.Item label="广告名称" name="ad_name" rules={[{ required: true, message: "请输入广告名称" }]}>
             <Input disabled />
+          </Form.Item>
+
+          <Form.Item label="像素ID" name="pixel_id">
+            <InputNumber style={{ width: "100%" }} min={0} precision={0} />
           </Form.Item>
 
           <Form.Item label="类型" name="type" rules={[{ required: true, message: "请选择类型" }]}>

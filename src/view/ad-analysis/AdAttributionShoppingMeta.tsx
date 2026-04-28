@@ -249,7 +249,7 @@ function AdAttributionShoppingMeta() {
     { title: "广告ID", dataIndex: "ad_id", key: "ad_id", width: 140 },
     { title: "日期", dataIndex: "date", key: "date", width: 120 },
     { title: "广告花费", dataIndex: "spend", key: "spend", width: 120, render: (v: number) => usd(v) },
-    { title: "充值用户数", dataIndex: "payUsers", key: "payUsers", width: 120, render: (v: number) => formatNumber(v) },
+    // { title: "充值用户数", dataIndex: "payUsers", key: "payUsers", width: 120, render: (v: number) => formatNumber(v) },
     {
       title: "新客充值用户数",
       dataIndex: "newPayUsers",
@@ -275,36 +275,36 @@ function AdAttributionShoppingMeta() {
         );
       },
     },
-    {
-      title: "充值笔数",
-      dataIndex: "payOrders",
-      key: "payOrders",
-      width: 120,
-      render: (v: number, record) => {
-        const num = toNumber(v) || 0;
-        if (num <= 0) return formatNumber(v);
-        return (
-          <Button
-            type="link"
-            style={{
-              padding: 0,
-              height: "auto",
-              lineHeight: 1.2,
-              borderBottom: "2px solid #22c55e",
-              borderRadius: 0,
-            }}
-            onClick={() => openPayOrdersModal(record)}
-          >
-            {formatNumber(v)}
-          </Button>
-        );
-      },
-    },
+    // {
+    //   title: "充值笔数",
+    //   dataIndex: "payOrders",
+    //   key: "payOrders",
+    //   width: 120,
+    //   render: (v: number, record) => {
+    //     const num = toNumber(v) || 0;
+    //     if (num <= 0) return formatNumber(v);
+    //     return (
+    //       <Button
+    //         type="link"
+    //         style={{
+    //           padding: 0,
+    //           height: "auto",
+    //           lineHeight: 1.2,
+    //           borderBottom: "2px solid #22c55e",
+    //           borderRadius: 0,
+    //         }}
+    //         onClick={() => openPayOrdersModal(record)}
+    //       >
+    //         {formatNumber(v)}
+    //       </Button>
+    //     );
+    //   },
+    // },
     { title: "新客充值笔数", dataIndex: "newPayOrders", key: "newPayOrders", width: 140, render: (v: number) => formatNumber(v) },
-    { title: "充值金额", dataIndex: "payAmount", key: "payAmount", width: 120, render: (v: number) => usd(v) },
+    // { title: "充值金额", dataIndex: "payAmount", key: "payAmount", width: 120, render: (v: number) => usd(v) },
     { title: "新客充值金额", dataIndex: "newPayAmount", key: "newPayAmount", width: 140, render: (v: number) => usd(v) },
-    { title: "ROAS", dataIndex: "roas", key: "roas", width: 100, render: (v: number) => pct(v) },
-    { title: "CPA(充值)", dataIndex: "cpaPay", key: "cpaPay", width: 120, render: (v: number) => usd(v) },
+    // { title: "ROAS", dataIndex: "roas", key: "roas", width: 100, render: (v: number) => pct(v) },
+    // { title: "CPA(充值)", dataIndex: "cpaPay", key: "cpaPay", width: 120, render: (v: number) => usd(v) },
     { title: "CPA(新客首充)", dataIndex: "cpaNewPay", key: "cpaNewPay", width: 140, render: (v: number) => usd(v) },
     { title: "新客充值转化率", dataIndex: "newPayRate", key: "newPayRate", width: 140, render: (v: number) => pct(v) },
     {
