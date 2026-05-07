@@ -124,6 +124,7 @@ function AdAttributionShoppingMeta() {
   const [registerUsersData, setRegisterUsersData] = useState<Array<{ key: string; user: string; click_time: string; register_time: string; register_ip: string }>>(
     []
   );
+  const [registerUsersIpRepeat, setRegisterUsersIpRepeat] = useState("");
   const [registerUsersPagination, setRegisterUsersPagination] = useState({ page: 1, limit: 20, total: 0 });
   const [registerUsersContext, setRegisterUsersContext] = useState<{ ad_id: string; date: string } | null>(null);
   const dailyFilterKeyRef = useRef<string>("");
@@ -165,6 +166,7 @@ function AdAttributionShoppingMeta() {
   const openRegisterUsersModal = useCallback((record: AdAttributionShoppingRow) => {
     setRegisterUsersContext({ ad_id: record.ad_id, date: record.date });
     setRegisterUsersData([]);
+    setRegisterUsersIpRepeat("");
     setRegisterUsersPagination((prev) => ({ ...prev, page: 1, total: 0 }));
     setRegisterUsersModalOpen(true);
   }, []);
@@ -173,6 +175,7 @@ function AdAttributionShoppingMeta() {
     setRegisterUsersModalOpen(false);
     setRegisterUsersContext(null);
     setRegisterUsersData([]);
+    setRegisterUsersIpRepeat("");
     setRegisterUsersPagination((prev) => ({ ...prev, page: 1, total: 0 }));
   }, []);
 
@@ -751,18 +754,22 @@ function AdAttributionShoppingMeta() {
             register_time: item?.register_time ?? "-",
             register_ip: item?.register_ip ?? "-",
           }));
+          const ipRepeat = typeof res?.ip_repeat === "string" ? res.ip_repeat : "";
           const page = res.page ?? registerUsersPagination.page;
           const limit = res.limit ?? registerUsersPagination.limit;
           const total = res.total ?? res.data?.total ?? rawList.length;
           setRegisterUsersData(mapped);
+          setRegisterUsersIpRepeat(ipRepeat);
           setRegisterUsersPagination({ page, limit, total });
         } else {
           setRegisterUsersData([]);
+          setRegisterUsersIpRepeat("");
           setRegisterUsersPagination((prev) => ({ ...prev, total: 0 }));
         }
       } catch {
         if (requestId !== registerUsersRequestIdRef.current) return;
         setRegisterUsersData([]);
+        setRegisterUsersIpRepeat("");
         setRegisterUsersPagination((prev) => ({ ...prev, total: 0 }));
       } finally {
         if (requestId === registerUsersRequestIdRef.current) {
@@ -944,7 +951,31 @@ function AdAttributionShoppingMeta() {
       </Modal>
 
       <Modal
-        title={`注册用户明细（${registerUsersContext?.ad_id || "-"} / ${registerUsersContext?.date || "-"}）`}
+        title={
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+            <div style={{ whiteSpace: "nowrap" }}>
+              {`注册用户明细（${registerUsersContext?.ad_id || "-"} / ${registerUsersContext?.date || "-"}）`}
+            </div>
+            {registerUsersIpRepeat ? (
+              <div
+                style={{
+                  flex: 1,
+                  textAlign: "right",
+                  whiteSpace: "pre-wrap",
+                  wordBreak: "break-all",
+                  overflowWrap: "anywhere",
+                  lineHeight: 1.2,
+                  paddingRight: 32,
+                }}
+              >
+                <span style={{ color: "#6b7280" }}>重复IP：</span>
+                <span>{registerUsersIpRepeat}</span>
+              </div>
+            ) : (
+              <div style={{ flex: 1 }} />
+            )}
+          </div>
+        }
         open={registerUsersModalOpen}
         onCancel={closeRegisterUsersModal}
         footer={null}
