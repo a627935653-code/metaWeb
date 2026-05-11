@@ -20,8 +20,8 @@ type AdAttributionShoppingRow = {
   cpaNewPay: number;
   newPayRate: number;
   register: number;
-  register3dAmount: number;
-  register7dAmount: number;
+  register3dAmount: string;
+  register7dAmount: string;
   cpaRegister: number;
   uv: number;
   registerRate: number;
@@ -337,8 +337,20 @@ function AdAttributionShoppingMeta() {
         );
       },
     },
-    { title: "注册用户3日充值", dataIndex: "register3dAmount", key: "register3dAmount", width: 120, render: (v: number) => usd(v) },
-    { title: "注册用户7日充值", dataIndex: "register7dAmount", key: "register7dAmount", width: 120, render: (v: number) => usd(v) },
+    {
+      title: "注册用户3日充值",
+      dataIndex: "register3dAmount",
+      key: "register3dAmount",
+      width: 120,
+      render: (v?: string) => (v ? v : "-"),
+    },
+    {
+      title: "注册用户7日充值",
+      dataIndex: "register7dAmount",
+      key: "register7dAmount",
+      width: 120,
+      render: (v?: string) => (v ? v : "-"),
+    },
     { title: "CPA(注册)", dataIndex: "cpaRegister", key: "cpaRegister", width: 120, render: (v: number) => usd(v) },
     { title: "独立访客", dataIndex: "uv", key: "uv", width: 120, render: (v: number) => formatNumber(v) },
     { title: "去重注册用户数", dataIndex: "registerUv", key: "registerUv", width: 140, render: (v: number) => formatNumber(v) },
