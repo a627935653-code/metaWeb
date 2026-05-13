@@ -22,6 +22,7 @@ type AdAttributionShoppingRow = {
   register: number;
   register3dAmount: string;
   register7dAmount: string;
+  register14dAmount: string;
   cpaRegister: number;
   uv: number;
   registerRate: number;
@@ -49,6 +50,9 @@ type AdAttributionShoppingDailyRow = {
   register: number;
   cpaRegister: number;
   uv: number;
+  register3dAmount: string;
+  register7dAmount: string;
+  register14dAmount: string;
   registerUv: number;
   registerRate: number;
   impressions: number;
@@ -238,6 +242,27 @@ function AdAttributionShoppingMeta() {
     { title: "CPA(新客首充)", dataIndex: "cpaNewPay", key: "cpaNewPay", width: 140, render: (v: number) => usd(v) },
     { title: "新客充值转化率", dataIndex: "newPayRate", key: "newPayRate", width: 140, render: (v: number) => pct(v) },
     { title: "注册数", dataIndex: "register", key: "register", width: 100, render: (v: number) => formatNumber(v) },
+    {
+      title: "注册用户3日充值",
+      dataIndex: "register3dAmount",
+      key: "register3dAmount",
+      width: 120,
+      render: (v?: string) => (v ? v : "-"),
+    },
+    {
+      title: "注册用户7日充值",
+      dataIndex: "register7dAmount",
+      key: "register7dAmount",
+      width: 120,
+      render: (v?: string) => (v ? v : "-"),
+    },
+    {
+      title: "注册用户14日充值",
+      dataIndex: "register14dAmount",
+      key: "register14dAmount",
+      width: 120,
+      render: (v?: string) => (v ? v : "-"),
+    },
     { title: "CPA(注册)", dataIndex: "cpaRegister", key: "cpaRegister", width: 120, render: (v: number) => usd(v) },
     { title: "独立访客", dataIndex: "uv", key: "uv", width: 120, render: (v: number) => formatNumber(v) },
     { title: "去重注册用户数", dataIndex: "registerUv", key: "registerUv", width: 140, render: (v: number) => formatNumber(v) },
@@ -348,6 +373,13 @@ function AdAttributionShoppingMeta() {
       title: "注册用户7日充值",
       dataIndex: "register7dAmount",
       key: "register7dAmount",
+      width: 120,
+      render: (v?: string) => (v ? v : "-"),
+    },
+    {
+      title: "注册用户14日充值",
+      dataIndex: "register14dAmount",
+      key: "register14dAmount",
       width: 120,
       render: (v?: string) => (v ? v : "-"),
     },
