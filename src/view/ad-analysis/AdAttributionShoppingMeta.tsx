@@ -127,7 +127,9 @@ function AdAttributionShoppingMeta() {
   const [newPayUsersContext, setNewPayUsersContext] = useState<{ ad_id: string; date: string } | null>(null);
   const [registerUsersModalOpen, setRegisterUsersModalOpen] = useState(false);
   const [registerUsersLoading, setRegisterUsersLoading] = useState(false);
-  const [registerUsersData, setRegisterUsersData] = useState<Array<{ key: string; user: string; click_time: string; register_time: string; register_ip: string }>>(
+  const [registerUsersData, setRegisterUsersData] = useState<
+    Array<{ key: string; user: string; click_time: string; register_time: string; register_ip: string; is_pay: boolean }>
+  >(
     []
   );
   const [registerUsersIpRepeat, setRegisterUsersIpRepeat] = useState("");
@@ -652,9 +654,16 @@ function AdAttributionShoppingMeta() {
     click_time: string;
     register_time: string;
     register_ip: string;
+    is_pay: boolean;
   }> = useMemo(
     () => [
-      { title: "用户", dataIndex: "user", key: "user", width: 220 },
+      {
+        title: "用户",
+        dataIndex: "user",
+        key: "user",
+        width: 220,
+        render: (v: string, record) => <span style={{ color: record.is_pay ? "#ef4444" : undefined }}>{v}</span>,
+      },
       { title: "点击广告时间", dataIndex: "click_time", key: "click_time", width: 260 },
       { title: "注册时间", dataIndex: "register_time", key: "register_time", width: 260 },
       { title: "注册IP", dataIndex: "register_ip", key: "register_ip", width: 180 },
@@ -801,6 +810,7 @@ function AdAttributionShoppingMeta() {
             click_time: item?.click_time ?? "-",
             register_time: item?.register_time ?? "-",
             register_ip: item?.register_ip ?? "-",
+            is_pay: item?.is_pay === true,
           }));
           const ipRepeat = typeof res?.ip_repeat === "string" ? res.ip_repeat : "";
           const page = res.page ?? registerUsersPagination.page;
