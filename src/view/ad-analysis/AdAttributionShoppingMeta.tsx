@@ -98,6 +98,7 @@ function AdAttributionShoppingMeta() {
   const [dailyRange, setDailyRange] = useState<any>(null);
   const [dailyBuyer, setDailyBuyer] = useState<string[]>([]);
   const [dailyChannel, setDailyChannel] = useState<string[]>([]);
+  const [dailyPlayer, setDailyPlayer] = useState("");
   const [personnelOptions, setPersonnelOptions] = useState<Array<{ label: string; value: string }>>([]);
   const [platformOptions, setPlatformOptions] = useState<Array<{ label: string; value: string }>>([]);
   const [dailyTableData, setDailyTableData] = useState<AdAttributionShoppingDailyRow[]>([]);
@@ -108,6 +109,7 @@ function AdAttributionShoppingMeta() {
   const [adType, setAdType] = useState<string | undefined>();
   const [buyer, setBuyer] = useState<string[]>([]);
   const [channel, setChannel] = useState<string[]>([]);
+  const [player, setPlayer] = useState("");
   const [tableData, setTableData] = useState<AdAttributionShoppingRow[]>([]);
   const [tableLoading, setTableLoading] = useState(false);
   const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0 });
@@ -233,17 +235,18 @@ function AdAttributionShoppingMeta() {
   const dailyColumns: ColumnsType<AdAttributionShoppingDailyRow> = [
     { title: "日期", dataIndex: "date", key: "date", width: 120, fixed: "left" },
     { title: "广告花费", dataIndex: "spend", key: "spend", width: 120, render: (v: number) => usd(v) },
+    { title: "注册数", dataIndex: "register", key: "register", width: 100, render: (v: number) => formatNumber(v) },
     // { title: "充值用户数", dataIndex: "payUsers", key: "payUsers", width: 120, render: (v: number) => formatNumber(v) },
     { title: "新客充值用户数", dataIndex: "newPayUsers", key: "newPayUsers", width: 140, render: (v: number) => formatNumber(v) },
     // { title: "充值笔数", dataIndex: "payOrders", key: "payOrders", width: 120, render: (v: number) => formatNumber(v) },
     { title: "新客充值笔数", dataIndex: "newPayOrders", key: "newPayOrders", width: 140, render: (v: number) => formatNumber(v) },
     // { title: "充值金额", dataIndex: "payAmount", key: "payAmount", width: 120, render: (v: number) => usd(v) },
-    { title: "新客充值金额", dataIndex: "newPayAmount", key: "newPayAmount", width: 140, render: (v: number) => usd(v) },
+    { title: "新客当日总充值金额", dataIndex: "newPayAmount", key: "newPayAmount", width: 140, render: (v: number) => usd(v) },
     // { title: "ROAS", dataIndex: "roas", key: "roas", width: 100, render: (v: number) => pct(v) },
     // { title: "CPA(充值)", dataIndex: "cpaPay", key: "cpaPay", width: 120, render: (v: number) => usd(v) },
     { title: "CPA(新客首充)", dataIndex: "cpaNewPay", key: "cpaNewPay", width: 140, render: (v: number) => usd(v) },
     { title: "新客充值转化率", dataIndex: "newPayRate", key: "newPayRate", width: 140, render: (v: number) => pct(v) },
-    { title: "注册数", dataIndex: "register", key: "register", width: 100, render: (v: number) => formatNumber(v) },
+   
     {
       title: "注册用户3日充值",
       dataIndex: "register3dAmount",
@@ -334,7 +337,7 @@ function AdAttributionShoppingMeta() {
     // },
     { title: "新客充值笔数", dataIndex: "newPayOrders", key: "newPayOrders", width: 140, render: (v: number) => formatNumber(v) },
     // { title: "充值金额", dataIndex: "payAmount", key: "payAmount", width: 120, render: (v: number) => usd(v) },
-    { title: "新客充值金额", dataIndex: "newPayAmount", key: "newPayAmount", width: 140, render: (v: number) => usd(v) },
+    { title: "新客当日总充值金额", dataIndex: "newPayAmount", key: "newPayAmount", width: 140, render: (v: number) => usd(v) },
     // { title: "ROAS", dataIndex: "roas", key: "roas", width: 100, render: (v: number) => pct(v) },
     // { title: "CPA(充值)", dataIndex: "cpaPay", key: "cpaPay", width: 120, render: (v: number) => usd(v) },
     { title: "CPA(新客首充)", dataIndex: "cpaNewPay", key: "cpaNewPay", width: 140, render: (v: number) => usd(v) },
@@ -504,6 +507,7 @@ function AdAttributionShoppingMeta() {
       ...rangeParams,
       account_ids: dailyBuyer,
       channels: dailyChannel,
+      player: dailyPlayer,
     });
     if (dailyFilterKeyRef.current !== filterKey && dailyPagination.page !== 1) {
       setDailyTableData([]);
@@ -521,6 +525,7 @@ function AdAttributionShoppingMeta() {
             ...rangeParams,
             account_ids: dailyBuyer.length ? dailyBuyer : undefined,
             channels: dailyChannel.length ? dailyChannel : undefined,
+            player: dailyPlayer || undefined,
             page: dailyPagination.page,
             limit: dailyPagination.limit,
           }),
@@ -553,7 +558,7 @@ function AdAttributionShoppingMeta() {
     };
 
     fetchDailyTableData();
-  }, [fetchPost, dailyRange, dailyBuyer, dailyChannel, dailyPagination.page, dailyPagination.limit]);
+  }, [fetchPost, dailyRange, dailyBuyer, dailyChannel, dailyPlayer, dailyPagination.page, dailyPagination.limit]);
 
   useEffect(() => {
     const rangeParams = normalizeRange(range);
@@ -563,6 +568,7 @@ function AdAttributionShoppingMeta() {
       ad_type: adType || "",
       account_ids: buyer,
       channels: channel,
+      player: player,
     });
     if (detailFilterKeyRef.current !== filterKey && pagination.page !== 1) {
       setTableData([]);
@@ -582,6 +588,7 @@ function AdAttributionShoppingMeta() {
             ad_types: adType ? [Number(adType)] : undefined,
             account_ids: buyer.length ? buyer : undefined,
             channels: channel.length ? channel : undefined,
+            player: player || undefined,
             page: pagination.page,
             limit: pagination.limit,
           }),
@@ -614,7 +621,7 @@ function AdAttributionShoppingMeta() {
     };
 
     fetchTableData();
-  }, [fetchPost, range, adName, adType, buyer, channel, pagination.page, pagination.limit]);
+  }, [fetchPost, range, adName, adType, buyer, channel, player, pagination.page, pagination.limit]);
 
   const payOrdersColumns: ColumnsType<{
     key: string;
@@ -870,6 +877,7 @@ function AdAttributionShoppingMeta() {
             style={{ width: 140 }}
             options={personnelOptions}
           />
+          <Input placeholder="投手" value={dailyPlayer} onChange={(e) => setDailyPlayer(e.target.value)} style={{ width: 140 }} />
           <Button onClick={exportDailyCSV}>导出</Button>
         </Space>
 
@@ -930,6 +938,7 @@ function AdAttributionShoppingMeta() {
             style={{ width: 140 }}
             options={personnelOptions}
           />
+          <Input placeholder="投手" value={player} onChange={(e) => setPlayer(e.target.value)} style={{ width: 140 }} />
           <Button onClick={exportCSV}>导出</Button>
         </Space>
 

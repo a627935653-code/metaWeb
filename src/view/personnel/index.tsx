@@ -12,6 +12,7 @@ type PersonnelRow = {
   id: number;
   personnel_id: number;
   name: string;
+  player: string;
   status: 0 | 1;
   created_at: string;
   updated_at: string;
@@ -22,6 +23,7 @@ type PersonnelRow = {
 type PersonnelFormValues = {
   personnel_id: number;
   name: string;
+  player: string;
   platform: PlatformType;
   status: boolean;
 };
@@ -67,6 +69,7 @@ export default function Personnel() {
     () => [
       { name: "personnel_id", label: "广告人员ID", type: "input" },
       { name: "name", label: "姓名", type: "input" },
+      { name: "player", label: "投手", type: "input" },
       { name: "platform", label: "渠道", type: "select", selectList: platformOptions },
       { name: "status", label: "状态", type: "select", selectList: statusSelectOptions },
     ],
@@ -86,6 +89,7 @@ export default function Personnel() {
       form.setFieldsValue({
         personnel_id: record.personnel_id,
         name: record.name,
+        player: record.player,
         platform: record.platform,
         status: record.status === 1,
       });
@@ -110,6 +114,7 @@ export default function Personnel() {
             ...(editing ? { id: editing.id } : null),
             personnel_id: values.personnel_id,
             name: values.name,
+            player: values.player,
             platform: values.platform,
             status: values.status ? 1 : 0,
           }),
@@ -156,6 +161,7 @@ export default function Personnel() {
       { title: "ID", dataIndex: "id", key: "id", width: 90 },
       { title: "广告人员ID", dataIndex: "personnel_id", key: "personnel_id", width: 120 },
       { title: "姓名", dataIndex: "name", key: "name", width: 140 },
+      { title: "投手", dataIndex: "player", key: "player", width: 140 },
       {
         title: "渠道",
         dataIndex: "platform",
@@ -236,6 +242,10 @@ export default function Personnel() {
           </Form.Item>
 
           <Form.Item label="姓名" name="name" rules={[{ required: true, message: "请输入姓名" }]}>
+            <Input />
+          </Form.Item>
+
+          <Form.Item label="投手" name="player" rules={[{ required: true, message: "请输入投手" }]}>
             <Input />
           </Form.Item>
 
