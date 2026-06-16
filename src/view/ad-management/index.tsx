@@ -3,7 +3,9 @@ import type { FieldsType } from "@/components/FilterGroup";
 import useFetch from "@/hooks/useFetch";
 import { Button, Form, Input, InputNumber, Modal, Select, Space, Tag } from "antd";
 import type { ColumnsType } from "antd/es/table";
+import { Plus } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
+import CreateAdModal from "./CreateAdModal";
 
 type AdType = 1 | 2;
 
@@ -36,6 +38,7 @@ export default function AdManagement() {
   const { fetchPost } = useFetch();
   const ref = useRef<any>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
   const [editing, setEditing] = useState<AdRow | null>(null);
   const [saving, setSaving] = useState(false);
   const [form] = Form.useForm<AdFormValues>();
@@ -69,6 +72,14 @@ export default function AdManagement() {
     setEditing(null);
     form.resetFields();
   }, [form]);
+
+  const openCreate = useCallback(() => {
+    setCreateModalOpen(true);
+  }, []);
+
+  const closeCreateModal = useCallback(() => {
+    setCreateModalOpen(false);
+  }, []);
 
   const submit = useCallback(
     async (values: AdFormValues) => {
@@ -140,6 +151,13 @@ export default function AdManagement() {
         columns={columns}
         ref={ref}
         defaultPageSize={20}
+        middleNode={
+          <div className="m-2">
+            <Button onClick={openCreate} type="primary" icon={<Plus size={16} />}>
+              新增广告
+            </Button>
+          </div>
+        }
       />
 
       <Modal
@@ -168,6 +186,14 @@ export default function AdManagement() {
           </Form.Item>
         </Form>
       </Modal>
+
+      <CreateAdModal
+        open={createModalOpen}
+        onClose={closeCreateModal}
+        onSuccess={() => {
+          ref.current?.refetch?.();
+        }}
+      />
     </>
   );
 }

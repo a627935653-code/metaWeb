@@ -1,13 +1,14 @@
 import type { MenuProps } from "antd";
 import { HouseIcon } from "lucide-react";
 import PlantAnlyser from "@/view/plant-anlyser";
-import ProfitLossRanking from "@/view/mark-admin/ProfitLossRanking";
+//import ProfitLossRanking from "@/view/mark-admin/ProfitLossRanking";
 import AdAttributionShopping from "@/view/ad-analysis/AdAttributionShopping";
 import AdAttributionRegister from "@/view/ad-analysis/AdAttributionRegister";
 import AdAttributionShoppingMeta from "@/view/ad-analysis/AdAttributionShoppingMeta";
 import AdAttributionRegisterMeta from "@/view/ad-analysis/AdAttributionRegisterMeta";
 import Personnel from "@/view/personnel";
 import AdManagement from "@/view/ad-management";
+import AdAttributionShoppingMetaCommon from "@/view/ad-analysis/AdAttributionShoppingMetaCommon";
 
 type MenuItem = Required<MenuProps>["items"][number];
 
@@ -49,8 +50,13 @@ export const RouteList: MenuItemType[] = [
       },
       {
         key: "AdAttributionShoppingMeta",
-        label: "购物广告分析(meta)",
+        label: "购物广告分析(首充)",
         component: <AdAttributionShoppingMeta />,
+      },
+      {
+        key: "AdAttributionShoppingMetaCommon",
+        label: "购物广告分析(全量)",
+        component: <AdAttributionShoppingMetaCommon />,
       },
       {
         key: "AdAttributionRegisterMeta",
