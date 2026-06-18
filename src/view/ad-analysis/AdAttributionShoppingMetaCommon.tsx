@@ -236,11 +236,19 @@ function AdAttributionShoppingMetaCommon() {
     { title: "日期", dataIndex: "date", key: "date", width: 120, fixed: "left" },
     { title: "广告花费", dataIndex: "spend", key: "spend", width: 120, render: (v: number) => usd(v) },
     { title: "注册数", dataIndex: "register", key: "register", width: 100, render: (v: number) => formatNumber(v) },
+    { title: "新客充值用户数", dataIndex: "newPayUsers", key: "newPayUsers", width: 140, render: (v: number) => formatNumber(v) },
     { title: "充值用户数", dataIndex: "payUsers", key: "payUsers", width: 120, render: (v: number) => formatNumber(v) },
+    { title: "新客充值笔数", dataIndex: "newPayOrders", key: "newPayOrders", width: 140, render: (v: number) => formatNumber(v) },
     { title: "充值笔数", dataIndex: "payOrders", key: "payOrders", width: 120, render: (v: number) => formatNumber(v) },
+    { title: "新客充值金额", dataIndex: "newPayAmount", key: "newPayAmount", width: 140, render: (v: number) => usd(v) },
     { title: "充值金额", dataIndex: "payAmount", key: "payAmount", width: 120, render: (v: number) => usd(v) },
-    { title: "ROAS", dataIndex: "roas", key: "roas", width: 100, render: (v: number) => pct(v) },
+    { title: "新客充值转化率", dataIndex: "newPayRate", key: "newPayRate", width: 140, render: (v: number) => pct(v) },
+    { title: "CPA(注册)", dataIndex: "cpaRegister", key: "cpaRegister", width: 120, render: (v: number) => usd(v) },
     { title: "CPA(充值)", dataIndex: "cpaPay", key: "cpaPay", width: 120, render: (v: number) => usd(v) },
+    { title: "独立访客", dataIndex: "uv", key: "uv", width: 120, render: (v: number) => formatNumber(v) },
+    { title: "去重注册用户数", dataIndex: "registerUv", key: "registerUv", width: 140, render: (v: number) => formatNumber(v) },
+    { title: "注册转化率(UV)", dataIndex: "registerRate", key: "registerRate", width: 120, render: (v: number) => pct(v) },
+    { title: "ROAS", dataIndex: "roas", key: "roas", width: 100, render: (v: number) => pct(v) },
   ];
 
   const detailColumns: ColumnsType<AdAttributionShoppingRow> = [
@@ -248,7 +256,33 @@ function AdAttributionShoppingMetaCommon() {
     { title: "广告ID", dataIndex: "ad_id", key: "ad_id", width: 140 },
     { title: "日期", dataIndex: "date", key: "date", width: 120 },
     { title: "广告花费", dataIndex: "spend", key: "spend", width: 120, render: (v: number) => usd(v) },
+    {
+      title: "新客充值用户数",
+      dataIndex: "newPayUsers",
+      key: "newPayUsers",
+      width: 140,
+      render: (v: number, record) => {
+        const num = toNumber(v) || 0;
+        if (num <= 0) return formatNumber(v);
+        return (
+          <Button
+            type="link"
+            style={{
+              padding: 0,
+              height: "auto",
+              lineHeight: 1.2,
+              borderBottom: "2px solid #22c55e",
+              borderRadius: 0,
+            }}
+            onClick={() => openNewPayUsersModal(record)}
+          >
+            {formatNumber(v)}
+          </Button>
+        );
+      },
+    },
     { title: "充值用户数", dataIndex: "payUsers", key: "payUsers", width: 120, render: (v: number) => formatNumber(v) },
+    { title: "新客充值笔数", dataIndex: "newPayOrders", key: "newPayOrders", width: 140, render: (v: number) => formatNumber(v) },
     {
       title: "充值笔数",
       dataIndex: "payOrders",
@@ -257,26 +291,26 @@ function AdAttributionShoppingMetaCommon() {
       render: (v: number, record) => {
         const num = toNumber(v) || 0;
         if (num <= 0) return formatNumber(v);
-         return (
-           <Button
-             type="link"
-             style={{
-               padding: 0,
-               height: "auto",
-               lineHeight: 1.2,
-               borderBottom: "2px solid #22c55e",
-               borderRadius: 0,
-             }}
-             onClick={() => openPayOrdersModal(record)}
-           >
-             {formatNumber(v)}
-           </Button>
-         );
-       },
-     },
+        return (
+          <Button
+            type="link"
+            style={{
+              padding: 0,
+              height: "auto",
+              lineHeight: 1.2,
+              borderBottom: "2px solid #22c55e",
+              borderRadius: 0,
+            }}
+            onClick={() => openPayOrdersModal(record)}
+          >
+            {formatNumber(v)}
+          </Button>
+        );
+      },
+    },
+    { title: "新客充值当日总金额", dataIndex: "newPayAmount", key: "newPayAmount", width: 160, render: (v: number) => usd(v) },
     { title: "充值金额", dataIndex: "payAmount", key: "payAmount", width: 120, render: (v: number) => usd(v) },
-    { title: "ROAS", dataIndex: "roas", key: "roas", width: 100, render: (v: number) => pct(v) },
-    { title: "CPA(充值)", dataIndex: "cpaPay", key: "cpaPay", width: 120, render: (v: number) => usd(v) },
+    { title: "新客充值转化率", dataIndex: "newPayRate", key: "newPayRate", width: 140, render: (v: number) => pct(v) },
     {
       title: "注册数",
       dataIndex: "register",
@@ -302,6 +336,12 @@ function AdAttributionShoppingMetaCommon() {
         );
       },
     },
+    { title: "CPA(注册)", dataIndex: "cpaRegister", key: "cpaRegister", width: 120, render: (v: number) => usd(v) },
+    { title: "CPA(充值)", dataIndex: "cpaPay", key: "cpaPay", width: 120, render: (v: number) => usd(v) },
+    { title: "独立访客", dataIndex: "uv", key: "uv", width: 120, render: (v: number) => formatNumber(v) },
+    { title: "去重注册用户数", dataIndex: "registerUv", key: "registerUv", width: 140, render: (v: number) => formatNumber(v) },
+    { title: "注册转化率(UV)", dataIndex: "registerRate", key: "registerRate", width: 120, render: (v: number) => pct(v) },
+    { title: "ROAS", dataIndex: "roas", key: "roas", width: 100, render: (v: number) => pct(v) },
   ];
 
   const exportDailyCSV = useCallback(() => {
@@ -309,11 +349,19 @@ function AdAttributionShoppingMetaCommon() {
       { label: "日期", value: (r: AdAttributionShoppingDailyRow) => r.date },
       { label: "广告花费", value: (r: AdAttributionShoppingDailyRow) => usd(r.spend) },
       { label: "注册数", value: (r: AdAttributionShoppingDailyRow) => formatNumber(r.register) },
+      { label: "新客充值用户数", value: (r: AdAttributionShoppingDailyRow) => formatNumber(r.newPayUsers) },
       { label: "充值用户数", value: (r: AdAttributionShoppingDailyRow) => formatNumber(r.payUsers) },
+      { label: "新客充值笔数", value: (r: AdAttributionShoppingDailyRow) => formatNumber(r.newPayOrders) },
       { label: "充值笔数", value: (r: AdAttributionShoppingDailyRow) => formatNumber(r.payOrders) },
+      { label: "新客充值金额", value: (r: AdAttributionShoppingDailyRow) => usd(r.newPayAmount) },
       { label: "充值金额", value: (r: AdAttributionShoppingDailyRow) => usd(r.payAmount) },
-      { label: "ROAS", value: (r: AdAttributionShoppingDailyRow) => pct(r.roas) },
+      { label: "新客充值转化率", value: (r: AdAttributionShoppingDailyRow) => pct(r.newPayRate) },
+      { label: "CPA(注册)", value: (r: AdAttributionShoppingDailyRow) => usd(r.cpaRegister) },
       { label: "CPA(充值)", value: (r: AdAttributionShoppingDailyRow) => usd(r.cpaPay) },
+      { label: "独立访客", value: (r: AdAttributionShoppingDailyRow) => formatNumber(r.uv) },
+      { label: "去重注册用户数", value: (r: AdAttributionShoppingDailyRow) => formatNumber(r.registerUv) },
+      { label: "注册转化率(UV)", value: (r: AdAttributionShoppingDailyRow) => pct(r.registerRate) },
+      { label: "ROAS", value: (r: AdAttributionShoppingDailyRow) => pct(r.roas) },
     ];
     const header = cols.map((c) => c.label).join(",");
     const body = dailyTableData
@@ -346,12 +394,20 @@ function AdAttributionShoppingMetaCommon() {
       { label: "广告ID", value: (r: AdAttributionShoppingRow) => r.ad_id },
       { label: "日期", value: (r: AdAttributionShoppingRow) => r.date },
       { label: "广告花费", value: (r: AdAttributionShoppingRow) => usd(r.spend) },
+      { label: "新客充值用户数", value: (r: AdAttributionShoppingRow) => formatNumber(r.newPayUsers) },
       { label: "充值用户数", value: (r: AdAttributionShoppingRow) => formatNumber(r.payUsers) },
+      { label: "新客充值笔数", value: (r: AdAttributionShoppingRow) => formatNumber(r.newPayOrders) },
       { label: "充值笔数", value: (r: AdAttributionShoppingRow) => formatNumber(r.payOrders) },
+      { label: "新客充值当日总金额", value: (r: AdAttributionShoppingRow) => usd(r.newPayAmount) },
       { label: "充值金额", value: (r: AdAttributionShoppingRow) => usd(r.payAmount) },
-      { label: "ROAS", value: (r: AdAttributionShoppingRow) => pct(r.roas) },
-      { label: "CPA(充值)", value: (r: AdAttributionShoppingRow) => usd(r.cpaPay) },
+      { label: "新客充值转化率", value: (r: AdAttributionShoppingRow) => pct(r.newPayRate) },
       { label: "注册数", value: (r: AdAttributionShoppingRow) => formatNumber(r.register) },
+      { label: "CPA(注册)", value: (r: AdAttributionShoppingRow) => usd(r.cpaRegister) },
+      { label: "CPA(充值)", value: (r: AdAttributionShoppingRow) => usd(r.cpaPay) },
+      { label: "独立访客", value: (r: AdAttributionShoppingRow) => formatNumber(r.uv) },
+      { label: "去重注册用户数", value: (r: AdAttributionShoppingRow) => formatNumber(r.registerUv) },
+      { label: "注册转化率(UV)", value: (r: AdAttributionShoppingRow) => pct(r.registerRate) },
+      { label: "ROAS", value: (r: AdAttributionShoppingRow) => pct(r.roas) },
     ];
     const header = cols.map((c) => c.label).join(",");
     const body = tableData
