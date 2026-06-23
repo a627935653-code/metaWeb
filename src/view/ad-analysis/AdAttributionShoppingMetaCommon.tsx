@@ -16,6 +16,10 @@ type AdAttributionShoppingRow = {
   payAmount: number;
   newPayAmount: number;
   roas: number;
+  d0Roas: number;
+  d3Roas: number;
+  d7Roas: number;
+  d14Roas: number;
   cpaPay: number;
   cpaNewPay: number;
   newPayRate: number;
@@ -44,6 +48,10 @@ type AdAttributionShoppingDailyRow = {
   payAmount: number;
   newPayAmount: number;
   roas: number;
+  d0Roas: number;
+  d3Roas: number;
+  d7Roas: number;
+  d14Roas: number;
   cpaPay: number;
   cpaNewPay: number;
   newPayRate: number;
@@ -249,6 +257,10 @@ function AdAttributionShoppingMetaCommon() {
     { title: "去重注册用户数", dataIndex: "registerUv", key: "registerUv", width: 140, render: (v: number) => formatNumber(v) },
     { title: "注册转化率(UV)", dataIndex: "registerRate", key: "registerRate", width: 120, render: (v: number) => pct(v) },
     { title: "ROAS", dataIndex: "roas", key: "roas", width: 100, render: (v: number) => pct(v) },
+    { title: "D0ROAS", dataIndex: "d0Roas", key: "d0Roas", width: 100, render: (v: number) => pct(v) },
+    { title: "D3ROAS", dataIndex: "d3Roas", key: "d3Roas", width: 100, render: (v: number) => pct(v) },
+    { title: "D7ROAS", dataIndex: "d7Roas", key: "d7Roas", width: 100, render: (v: number) => pct(v) },
+    { title: "D14ROAS", dataIndex: "d14Roas", key: "d14Roas", width: 110, render: (v: number) => pct(v) },
   ];
 
   const detailColumns: ColumnsType<AdAttributionShoppingRow> = [
@@ -342,6 +354,10 @@ function AdAttributionShoppingMetaCommon() {
     { title: "去重注册用户数", dataIndex: "registerUv", key: "registerUv", width: 140, render: (v: number) => formatNumber(v) },
     { title: "注册转化率(UV)", dataIndex: "registerRate", key: "registerRate", width: 120, render: (v: number) => pct(v) },
     { title: "ROAS", dataIndex: "roas", key: "roas", width: 100, render: (v: number) => pct(v) },
+    { title: "D0ROAS", dataIndex: "d0Roas", key: "d0Roas", width: 100, render: (v: number) => pct(v) },
+    { title: "D3ROAS", dataIndex: "d3Roas", key: "d3Roas", width: 100, render: (v: number) => pct(v) },
+    { title: "D7ROAS", dataIndex: "d7Roas", key: "d7Roas", width: 100, render: (v: number) => pct(v) },
+    { title: "D14ROAS", dataIndex: "d14Roas", key: "d14Roas", width: 110, render: (v: number) => pct(v) },
   ];
 
   const exportDailyCSV = useCallback(() => {
@@ -362,6 +378,10 @@ function AdAttributionShoppingMetaCommon() {
       { label: "去重注册用户数", value: (r: AdAttributionShoppingDailyRow) => formatNumber(r.registerUv) },
       { label: "注册转化率(UV)", value: (r: AdAttributionShoppingDailyRow) => pct(r.registerRate) },
       { label: "ROAS", value: (r: AdAttributionShoppingDailyRow) => pct(r.roas) },
+      { label: "D0ROAS", value: (r: AdAttributionShoppingDailyRow) => pct(r.d0Roas) },
+      { label: "D3ROAS", value: (r: AdAttributionShoppingDailyRow) => pct(r.d3Roas) },
+      { label: "D7ROAS", value: (r: AdAttributionShoppingDailyRow) => pct(r.d7Roas) },
+      { label: "D14ROAS", value: (r: AdAttributionShoppingDailyRow) => pct(r.d14Roas) },
     ];
     const header = cols.map((c) => c.label).join(",");
     const body = dailyTableData
@@ -408,6 +428,10 @@ function AdAttributionShoppingMetaCommon() {
       { label: "去重注册用户数", value: (r: AdAttributionShoppingRow) => formatNumber(r.registerUv) },
       { label: "注册转化率(UV)", value: (r: AdAttributionShoppingRow) => pct(r.registerRate) },
       { label: "ROAS", value: (r: AdAttributionShoppingRow) => pct(r.roas) },
+      { label: "D0ROAS", value: (r: AdAttributionShoppingRow) => pct(r.d0Roas) },
+      { label: "D3ROAS", value: (r: AdAttributionShoppingRow) => pct(r.d3Roas) },
+      { label: "D7ROAS", value: (r: AdAttributionShoppingRow) => pct(r.d7Roas) },
+      { label: "D14ROAS", value: (r: AdAttributionShoppingRow) => pct(r.d14Roas) },
     ];
     const header = cols.map((c) => c.label).join(",");
     const body = tableData
