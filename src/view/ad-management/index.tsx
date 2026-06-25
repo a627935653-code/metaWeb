@@ -11,7 +11,7 @@ type AdType = 1 | 2;
 
 type AdRow = {
   id: number;
-  ad_id: number;
+  ad_id: string;
   ad_name: string;
   pixel_id?: number | null;
   type: AdType;
@@ -20,7 +20,7 @@ type AdRow = {
 };
 
 type AdFormValues = {
-  ad_id: number;
+  ad_id: string;
   ad_name: string;
   pixel_id?: number | null;
   type: AdType;
@@ -81,6 +81,34 @@ export default function AdManagement() {
     setCreateModalOpen(false);
   }, []);
 
+  const validateAdIdUnique = useCallback(
+    async (_: unknown, value: string) => {
+      const nextAdId = String(value ?? "").trim();
+      const currentAdId = String(editing?.ad_id ?? "").trim();
+
+      if (!nextAdId || nextAdId === currentAdId) {
+        return Promise.resolve();
+      }
+
+      const res = await fetchPost({
+        path: LIST_PATH,
+        body: JSON.stringify({
+          page: 1,
+          limit: 1,
+          ad_id: nextAdId,
+        }),
+      });
+
+      const duplicated = (res?.data?.list ?? []).some((item: AdRow) => item.id !== editing?.id);
+      if (duplicated) {
+        return Promise.reject(new Error("广告ID已存在"));
+      }
+
+      return Promise.resolve();
+    },
+    [editing?.ad_id, editing?.id, fetchPost]
+  );
+
   const submit = useCallback(
     async (values: AdFormValues) => {
       if (!editing) return;
@@ -90,6 +118,8 @@ export default function AdManagement() {
           path: EDIT_PATH,
           body: JSON.stringify({
             id: editing.id,
+            ad_id: values.ad_id,
+            ad_name: values.ad_name,
             type: values.type,
             pixel_id: values.pixel_id ?? undefined,
           }),
@@ -169,12 +199,19 @@ export default function AdManagement() {
         destroyOnClose
       >
         <Form form={form} layout="vertical" onFinish={submit} initialValues={{ type: 1 }}>
-          <Form.Item label="广告ID" name="ad_id" rules={[{ required: true, message: "请输入广告ID" }]}>
-            <InputNumber style={{ width: "100%" }} min={1} precision={0} disabled />
+          <Form.Item
+            label="广告ID"
+            name="ad_id"
+            rules={[
+              { required: true, message: "请输入广告ID" },
+              { validator: validateAdIdUnique },
+            ]}
+          >
+            <Input />
           </Form.Item>
 
           <Form.Item label="广告名称" name="ad_name" rules={[{ required: true, message: "请输入广告名称" }]}>
-            <Input disabled />
+            <Input />
           </Form.Item>
 
           <Form.Item label="像素ID" name="pixel_id">

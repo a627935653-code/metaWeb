@@ -5,13 +5,14 @@ import { useCallback, useEffect, useState } from "react";
 type AdType = 1 | 2;
 
 type CreateAdFormValues = {
-  ad_id: number;
+  ad_id: string;
   ad_name: string;
   pixel_id?: number | null;
   type: AdType;
 };
 
 const ADD_PATH = "/meta/addMetaList";
+const LIST_PATH = "/meta/list";
 
 const adTypeOptions: Array<{ label: string; value: AdType }> = [
   { label: "全量", value: 1 },
@@ -35,6 +36,31 @@ export default function CreateAdModal({
     if (!open) return;
     form.resetFields();
   }, [form, open]);
+
+  const validateAdIdUnique = useCallback(
+    async (_: unknown, value: string) => {
+      const nextAdId = String(value ?? "").trim();
+      if (!nextAdId) {
+        return Promise.resolve();
+      }
+
+      const res = await fetchPost({
+        path: LIST_PATH,
+        body: JSON.stringify({
+          page: 1,
+          limit: 1,
+          ad_id: nextAdId,
+        }),
+      });
+
+      if ((res?.data?.list ?? []).length > 0) {
+        return Promise.reject(new Error("广告ID已存在"));
+      }
+
+      return Promise.resolve();
+    },
+    [fetchPost]
+  );
 
   const submit = useCallback(
     async (values: CreateAdFormValues) => {
@@ -70,7 +96,14 @@ export default function CreateAdModal({
       destroyOnClose
     >
       <Form form={form} layout="vertical" onFinish={submit} initialValues={{ type: 1 }}>
-        <Form.Item label="广告ID" name="ad_id" rules={[{ required: true, message: "请输入广告ID" }]}>
+        <Form.Item
+          label="广告ID"
+          name="ad_id"
+          rules={[
+            { required: true, message: "请输入广告ID" },
+            { validator: validateAdIdUnique },
+          ]}
+        >
           <Input />
         </Form.Item>
 
