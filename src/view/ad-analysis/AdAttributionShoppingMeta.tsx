@@ -49,6 +49,11 @@ type AdAttributionShoppingDailyRow = {
   payAmount: number;
   newPayAmount: number;
   roas: number;
+  sameDayPayUsers: number;
+  sameDayPayOrders: number;
+  sameDayPayAmount: number;
+  newUserD0Roas: number;
+  sameDayD0Roas: number;
   cpaPay: number;
   cpaNewPay: number;
   newPayRate: number;
@@ -241,6 +246,12 @@ function AdAttributionShoppingMeta() {
     { title: "日期", dataIndex: "date", key: "date", width: 120, fixed: "left" },
     { title: "广告花费", dataIndex: "spend", key: "spend", width: 120, render: (v: number) => usd(v) },
     { title: "注册数", dataIndex: "register", key: "register", width: 100, render: (v: number) => formatNumber(v) },
+    // 新增同日归因字段：当天点击首充广告且当天充值的用户，再汇总这些用户当天全部充值。
+    { title: "当日充值用户数", dataIndex: "sameDayPayUsers", key: "dailySameDayPayUsers", width: 140, render: (v: number) => formatNumber(v) },
+    { title: "充值笔数", dataIndex: "sameDayPayOrders", key: "dailySameDayPayOrders", width: 120, render: (v: number) => formatNumber(v) },
+    { title: "总产值金额", dataIndex: "sameDayPayAmount", key: "dailySameDayPayAmount", width: 120, render: (v: number) => usd(v) },
+    { title: "新用户D0 ROAS", dataIndex: "newUserD0Roas", key: "dailyNewUserD0Roas", width: 140, render: (v: number) => pct(v) },
+    { title: "D0 ROAS", dataIndex: "sameDayD0Roas", key: "dailySameDayD0Roas", width: 120, render: (v: number) => pct(v) },
     // { title: "充值用户数", dataIndex: "payUsers", key: "payUsers", width: 120, render: (v: number) => formatNumber(v) },
     { title: "新客充值用户数", dataIndex: "newPayUsers", key: "newPayUsers", width: 140, render: (v: number) => formatNumber(v) },
     // { title: "充值笔数", dataIndex: "payOrders", key: "payOrders", width: 120, render: (v: number) => formatNumber(v) },
@@ -414,6 +425,11 @@ function AdAttributionShoppingMeta() {
     const cols = [
       { label: "日期", value: (r: AdAttributionShoppingDailyRow) => r.date },
       { label: "广告花费", value: (r: AdAttributionShoppingDailyRow) => usd(r.spend) },
+      { label: "当日充值用户数", value: (r: AdAttributionShoppingDailyRow) => formatNumber(r.sameDayPayUsers) },
+      { label: "充值笔数(同日归因)", value: (r: AdAttributionShoppingDailyRow) => formatNumber(r.sameDayPayOrders) },
+      { label: "总产值金额", value: (r: AdAttributionShoppingDailyRow) => usd(r.sameDayPayAmount) },
+      { label: "新用户D0 ROAS", value: (r: AdAttributionShoppingDailyRow) => pct(r.newUserD0Roas) },
+      { label: "D0 ROAS", value: (r: AdAttributionShoppingDailyRow) => pct(r.sameDayD0Roas) },
       { label: "充值用户数", value: (r: AdAttributionShoppingDailyRow) => formatNumber(r.payUsers) },
       { label: "新客充值用户数", value: (r: AdAttributionShoppingDailyRow) => formatNumber(r.newPayUsers) },
       { label: "充值笔数", value: (r: AdAttributionShoppingDailyRow) => formatNumber(r.payOrders) },
