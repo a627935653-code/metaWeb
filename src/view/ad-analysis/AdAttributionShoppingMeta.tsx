@@ -63,6 +63,7 @@ type AdAttributionShoppingDailyRow = {
   register3dAmount: string;
   register7dAmount: string;
   register14dAmount: string;
+  registerYesterdayAmount: number;
   registerUv: number;
   registerRate: number;
   impressions: number;
@@ -100,6 +101,7 @@ const ROAS_PAY_SUM_PATH = "/meta/roaspaysumContrastMeta";
 const PAY_ORDERS_DETAIL_PATH = "/meta/payOrdersListMeta";
 const NEW_PAY_USERS_DETAIL_PATH = "/meta/newPayUserListMeta";
 const REGISTER_USERS_DETAIL_PATH = "/meta/registerUserListMeta";
+const REGISTER_YESTERDAY_RANK_PATH = "/meta/registerYesterdayRankMeta";
 
 function AdAttributionShoppingMeta() {
   const { fetchPost, fetchGET } = useFetch();
@@ -147,6 +149,18 @@ function AdAttributionShoppingMeta() {
   const [registerUsersIpRepeat, setRegisterUsersIpRepeat] = useState("");
   const [registerUsersPagination, setRegisterUsersPagination] = useState({ page: 1, limit: 20, total: 0 });
   const [registerUsersContext, setRegisterUsersContext] = useState<{ ad_id: string; date: string } | null>(null);
+  const [registerYesterdayModalOpen, setRegisterYesterdayModalOpen] = useState(false);
+  const [registerYesterdayLoading, setRegisterYesterdayLoading] = useState(false);
+  const [registerYesterdayData, setRegisterYesterdayData] = useState<
+    Array<{ key: string; user: string; total_pay_amount: number; register_time: string; click_time: string }>
+  >([]);
+  const [registerYesterdayPagination, setRegisterYesterdayPagination] = useState({ page: 1, limit: 20, total: 0 });
+  const [registerYesterdayContext, setRegisterYesterdayContext] = useState<{
+    date: string;
+    account_ids: string[];
+    channels: string[];
+    player: string;
+  } | null>(null);
   const dailyFilterKeyRef = useRef<string>("");
   const detailFilterKeyRef = useRef<string>("");
   const dailyRequestIdRef = useRef(0);
@@ -154,6 +168,7 @@ function AdAttributionShoppingMeta() {
   const payOrdersRequestIdRef = useRef(0);
   const newPayUsersRequestIdRef = useRef(0);
   const registerUsersRequestIdRef = useRef(0);
+  const registerYesterdayRequestIdRef = useRef(0);
 
   const openPayOrdersModal = useCallback((record: AdAttributionShoppingRow) => {
     setPayOrdersContext({ ad_id: record.ad_id, date: record.date });
@@ -197,6 +212,28 @@ function AdAttributionShoppingMeta() {
     setRegisterUsersData([]);
     setRegisterUsersIpRepeat("");
     setRegisterUsersPagination((prev) => ({ ...prev, page: 1, total: 0 }));
+  }, []);
+
+  const openRegisterYesterdayModal = useCallback(
+    (record: AdAttributionShoppingDailyRow) => {
+      setRegisterYesterdayContext({
+        date: record.date,
+        account_ids: [...dailyBuyer],
+        channels: [...dailyChannel],
+        player: dailyPlayer,
+      });
+      setRegisterYesterdayData([]);
+      setRegisterYesterdayPagination((prev) => ({ ...prev, page: 1, total: 0 }));
+      setRegisterYesterdayModalOpen(true);
+    },
+    [dailyBuyer, dailyChannel, dailyPlayer]
+  );
+
+  const closeRegisterYesterdayModal = useCallback(() => {
+    setRegisterYesterdayModalOpen(false);
+    setRegisterYesterdayContext(null);
+    setRegisterYesterdayData([]);
+    setRegisterYesterdayPagination((prev) => ({ ...prev, page: 1, total: 0 }));
   }, []);
 
   const personnelPlatformParam = useMemo(() => {
@@ -284,6 +321,24 @@ function AdAttributionShoppingMeta() {
       width: 120,
       render: (v?: string) => (v ? v : "-"),
     },
+    {
+      title: "截止昨日总充值",
+      dataIndex: "registerYesterdayAmount",
+      key: "registerYesterdayAmount",
+      width: 140,
+      render: (v: number, record) => {
+        if ((toNumber(record.register) || 0) <= 0) return usd(v);
+        return (
+          <Button
+            type="link"
+            style={{ padding: 0, height: "auto", lineHeight: 1.2, borderBottom: "2px solid #22c55e", borderRadius: 0 }}
+            onClick={() => openRegisterYesterdayModal(record)}
+          >
+            {usd(v)}
+          </Button>
+        );
+      },
+    },
     { title: "CPA(注册)", dataIndex: "cpaRegister", key: "cpaRegister", width: 120, render: (v: number) => usd(v) },
     { title: "独立访客", dataIndex: "uv", key: "uv", width: 120, render: (v: number) => formatNumber(v) },
     { title: "去重注册用户数", dataIndex: "registerUv", key: "registerUv", width: 140, render: (v: number) => formatNumber(v) },
@@ -297,8 +352,8 @@ function AdAttributionShoppingMeta() {
 
   const detailColumns: ColumnsType<AdAttributionShoppingRow> = [
     { title: "广告名称", dataIndex: "ad_name", key: "ad_name", width: 160, fixed: "left" },
-    { title: "广告ID", dataIndex: "ad_id", key: "ad_id", width: 140 },
-    { title: "日期", dataIndex: "date", key: "date", width: 120 },
+    { title: "广告ID", dataIndex: "ad_id", key: "ad_id", width: 140, fixed: "left" },
+    { title: "日期", dataIndex: "date", key: "date", width: 120, fixed: "left" },
     { title: "广告花费", dataIndex: "spend", key: "spend", width: 120, render: (v: number) => usd(v) },
     // 新增同日归因字段：当天点击该广告且当天充值的用户，再汇总这些用户当天全部充值。
     { title: "当日充值用户数", dataIndex: "sameDayPayUsers", key: "sameDayPayUsers", width: 140, render: (v: number) => formatNumber(v) },
@@ -441,6 +496,7 @@ function AdAttributionShoppingMeta() {
       { label: "CPA(新客首充)", value: (r: AdAttributionShoppingDailyRow) => usd(r.cpaNewPay) },
       { label: "新客充值转化率", value: (r: AdAttributionShoppingDailyRow) => pct(r.newPayRate) },
       { label: "注册数", value: (r: AdAttributionShoppingDailyRow) => formatNumber(r.register) },
+      { label: "截止昨日总充值", value: (r: AdAttributionShoppingDailyRow) => usd(r.registerYesterdayAmount) },
       { label: "CPA(注册)", value: (r: AdAttributionShoppingDailyRow) => usd(r.cpaRegister) },
       { label: "独立访客", value: (r: AdAttributionShoppingDailyRow) => formatNumber(r.uv) },
       { label: "去重注册用户数", value: (r: AdAttributionShoppingDailyRow) => formatNumber(r.registerUv) },
@@ -710,6 +766,22 @@ function AdAttributionShoppingMeta() {
     []
   );
 
+  const registerYesterdayColumns: ColumnsType<{
+    key: string;
+    user: string;
+    total_pay_amount: number;
+    register_time: string;
+    click_time: string;
+  }> = useMemo(
+    () => [
+      { title: "用户名", dataIndex: "user", key: "user", width: 220 },
+      { title: "总充值金额", dataIndex: "total_pay_amount", key: "total_pay_amount", width: 160, render: (v: number) => usd(v) },
+      { title: "注册时间", dataIndex: "register_time", key: "register_time", width: 280 },
+      { title: "点击广告时间", dataIndex: "click_time", key: "click_time", width: 280 },
+    ],
+    []
+  );
+
   useEffect(() => {
     if (!payOrdersModalOpen || !payOrdersContext) return;
     const fetchPayOrders = async () => {
@@ -883,6 +955,61 @@ function AdAttributionShoppingMeta() {
     registerUsersPagination.limit,
   ]);
 
+  useEffect(() => {
+    if (!registerYesterdayModalOpen || !registerYesterdayContext) return;
+    const fetchRegisterYesterdayRank = async () => {
+      const requestId = ++registerYesterdayRequestIdRef.current;
+      setRegisterYesterdayLoading(true);
+      try {
+        const res = await fetchPost({
+          path: REGISTER_YESTERDAY_RANK_PATH,
+          body: JSON.stringify({
+            date: registerYesterdayContext.date,
+            account_ids: registerYesterdayContext.account_ids.length ? registerYesterdayContext.account_ids : undefined,
+            channels: registerYesterdayContext.channels.length ? registerYesterdayContext.channels : undefined,
+            player: registerYesterdayContext.player || undefined,
+            page: registerYesterdayPagination.page,
+            limit: registerYesterdayPagination.limit,
+          }),
+        });
+        if (requestId !== registerYesterdayRequestIdRef.current) return;
+        if (res?.code === 0 && res?.data) {
+          const rawList = Array.isArray(res.data) ? res.data : res.data?.list || res.data?.data || [];
+          const mapped = rawList.map((item: any, index: number) => ({
+            key: item?.key || item?.uid || `${registerYesterdayContext.date}_${index + 1}`,
+            user: item?.user ?? "-",
+            total_pay_amount: toNumber(item?.total_pay_amount) || 0,
+            register_time: item?.register_time ?? "-",
+            click_time: item?.click_time ?? "-",
+          }));
+          const page = res.page ?? registerYesterdayPagination.page;
+          const limit = res.limit ?? registerYesterdayPagination.limit;
+          const total = res.total ?? res.data?.total ?? rawList.length;
+          setRegisterYesterdayData(mapped);
+          setRegisterYesterdayPagination({ page, limit, total });
+        } else {
+          setRegisterYesterdayData([]);
+          setRegisterYesterdayPagination((prev) => ({ ...prev, total: 0 }));
+        }
+      } catch {
+        if (requestId !== registerYesterdayRequestIdRef.current) return;
+        setRegisterYesterdayData([]);
+        setRegisterYesterdayPagination((prev) => ({ ...prev, total: 0 }));
+      } finally {
+        if (requestId === registerYesterdayRequestIdRef.current) {
+          setRegisterYesterdayLoading(false);
+        }
+      }
+    };
+    fetchRegisterYesterdayRank();
+  }, [
+    fetchPost,
+    registerYesterdayModalOpen,
+    registerYesterdayContext,
+    registerYesterdayPagination.page,
+    registerYesterdayPagination.limit,
+  ]);
+
   return (
     <div style={{ padding: 16 }}>
       <Title level={4} style={{ margin: 0 }}>购物广告分析(首充)</Title>
@@ -994,6 +1121,33 @@ function AdAttributionShoppingMeta() {
           />
         </div>
       </div>
+
+      <Modal
+        title={`截止昨日总充值排名（${registerYesterdayContext?.date || "-"}）`}
+        open={registerYesterdayModalOpen}
+        onCancel={closeRegisterYesterdayModal}
+        footer={null}
+        width={1080}
+        destroyOnClose
+      >
+        <Table
+          columns={registerYesterdayColumns}
+          dataSource={registerYesterdayData}
+          rowKey={(record) => record.key}
+          loading={registerYesterdayLoading}
+          scroll={{ x: 940, y: 520 }}
+          pagination={{
+            current: registerYesterdayPagination.page,
+            pageSize: registerYesterdayPagination.limit,
+            total: registerYesterdayPagination.total || registerYesterdayData.length,
+            showSizeChanger: true,
+            pageSizeOptions: ["10", "20", "50", "100"],
+            onChange: (page, pageSize) => {
+              setRegisterYesterdayPagination((prev) => ({ ...prev, page, limit: pageSize }));
+            },
+          }}
+        />
+      </Modal>
 
       <Modal
         title={`充值明细（${payOrdersContext?.ad_id || "-"} / ${payOrdersContext?.date || "-"}）`}

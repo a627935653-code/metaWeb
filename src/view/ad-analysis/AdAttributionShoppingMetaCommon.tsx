@@ -265,8 +265,8 @@ function AdAttributionShoppingMetaCommon() {
 
   const detailColumns: ColumnsType<AdAttributionShoppingRow> = [
     { title: "广告名称", dataIndex: "ad_name", key: "ad_name", width: 160, fixed: "left" },
-    { title: "广告ID", dataIndex: "ad_id", key: "ad_id", width: 140 },
-    { title: "日期", dataIndex: "date", key: "date", width: 120 },
+    { title: "广告ID", dataIndex: "ad_id", key: "ad_id", width: 140, fixed: "left" },
+    { title: "日期", dataIndex: "date", key: "date", width: 120, fixed: "left" },
     { title: "广告花费", dataIndex: "spend", key: "spend", width: 120, render: (v: number) => usd(v) },
     {
       title: "新客充值用户数",
