@@ -242,7 +242,7 @@ function AdAttributionShoppingMetaCommon() {
 
   const dailyColumns: ColumnsType<AdAttributionShoppingDailyRow> = [
     { title: "日期", dataIndex: "date", key: "date", width: 120, fixed: "left" },
-    { title: "广告花费", dataIndex: "spend", key: "spend", width: 120, render: (v: number) => usd(v) },
+    { title: "广告花费", dataIndex: "spend", key: "spend", width: 120, fixed: "left", render: (v: number) => usd(v) },
     { title: "注册数", dataIndex: "register", key: "register", width: 100, render: (v: number) => formatNumber(v) },
     { title: "新客充值用户数", dataIndex: "newPayUsers", key: "newPayUsers", width: 140, render: (v: number) => formatNumber(v) },
     { title: "充值用户数", dataIndex: "payUsers", key: "payUsers", width: 120, render: (v: number) => formatNumber(v) },

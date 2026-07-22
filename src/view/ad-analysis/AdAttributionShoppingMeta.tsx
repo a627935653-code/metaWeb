@@ -152,7 +152,7 @@ function AdAttributionShoppingMeta() {
   const [registerYesterdayModalOpen, setRegisterYesterdayModalOpen] = useState(false);
   const [registerYesterdayLoading, setRegisterYesterdayLoading] = useState(false);
   const [registerYesterdayData, setRegisterYesterdayData] = useState<
-    Array<{ key: string; user: string; total_pay_amount: number; register_time: string; click_time: string }>
+    Array<{ key: string; user: string; total_pay_amount: number; register_time: string; click_time: string; latest_click_time: string }>
   >([]);
   const [registerYesterdayPagination, setRegisterYesterdayPagination] = useState({ page: 1, limit: 20, total: 0 });
   const [registerYesterdayContext, setRegisterYesterdayContext] = useState<{
@@ -281,7 +281,7 @@ function AdAttributionShoppingMeta() {
 
   const dailyColumns: ColumnsType<AdAttributionShoppingDailyRow> = [
     { title: "日期", dataIndex: "date", key: "date", width: 120, fixed: "left" },
-    { title: "广告花费", dataIndex: "spend", key: "spend", width: 120, render: (v: number) => usd(v) },
+    { title: "广告花费", dataIndex: "spend", key: "spend", width: 120, fixed: "left", render: (v: number) => usd(v) },
     { title: "注册数", dataIndex: "register", key: "register", width: 100, render: (v: number) => formatNumber(v) },
     // 新增同日归因字段：当天点击首充广告且当天充值的用户，再汇总这些用户当天全部充值。
     { title: "当日充值用户数", dataIndex: "sameDayPayUsers", key: "dailySameDayPayUsers", width: 140, render: (v: number) => formatNumber(v) },
@@ -772,12 +772,14 @@ function AdAttributionShoppingMeta() {
     total_pay_amount: number;
     register_time: string;
     click_time: string;
+    latest_click_time: string;
   }> = useMemo(
     () => [
       { title: "用户名", dataIndex: "user", key: "user", width: 220 },
       { title: "总充值金额", dataIndex: "total_pay_amount", key: "total_pay_amount", width: 160, render: (v: number) => usd(v) },
       { title: "注册时间", dataIndex: "register_time", key: "register_time", width: 280 },
-      { title: "点击广告时间", dataIndex: "click_time", key: "click_time", width: 280 },
+      { title: "首次点击广告时间", dataIndex: "click_time", key: "click_time", width: 280 },
+      { title: "最近一次点击广告时间", dataIndex: "latest_click_time", key: "latest_click_time", width: 280 },
     ],
     []
   );
@@ -981,6 +983,7 @@ function AdAttributionShoppingMeta() {
             total_pay_amount: toNumber(item?.total_pay_amount) || 0,
             register_time: item?.register_time ?? "-",
             click_time: item?.click_time ?? "-",
+            latest_click_time: item?.latest_click_time ?? "-",
           }));
           const page = res.page ?? registerYesterdayPagination.page;
           const limit = res.limit ?? registerYesterdayPagination.limit;
@@ -1127,7 +1130,7 @@ function AdAttributionShoppingMeta() {
         open={registerYesterdayModalOpen}
         onCancel={closeRegisterYesterdayModal}
         footer={null}
-        width={1080}
+        width={1320}
         destroyOnClose
       >
         <Table
@@ -1135,7 +1138,7 @@ function AdAttributionShoppingMeta() {
           dataSource={registerYesterdayData}
           rowKey={(record) => record.key}
           loading={registerYesterdayLoading}
-          scroll={{ x: 940, y: 520 }}
+          scroll={{ x: 1220, y: 520 }}
           pagination={{
             current: registerYesterdayPagination.page,
             pageSize: registerYesterdayPagination.limit,
