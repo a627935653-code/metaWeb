@@ -774,13 +774,16 @@ function AdAttributionShoppingMeta() {
     click_time: string;
     latest_click_time: string;
   }> = useMemo(
-    () => [
-      { title: "用户名", dataIndex: "user", key: "user", width: 220 },
-      { title: "总充值金额", dataIndex: "total_pay_amount", key: "total_pay_amount", width: 160, render: (v: number) => usd(v) },
-      { title: "注册时间", dataIndex: "register_time", key: "register_time", width: 280 },
-      { title: "首次点击广告时间", dataIndex: "click_time", key: "click_time", width: 280 },
-      { title: "最近一次点击广告时间", dataIndex: "latest_click_time", key: "latest_click_time", width: 280 },
-    ],
+    () => {
+      const renderTime = (value: string) => <span style={{ whiteSpace: "pre-line" }}>{value}</span>;
+      return [
+        { title: "用户名", dataIndex: "user", key: "user", width: 220 },
+        { title: "总充值金额", dataIndex: "total_pay_amount", key: "total_pay_amount", width: 160, render: (v: number) => usd(v) },
+        { title: "注册时间", dataIndex: "register_time", key: "register_time", width: 280, render: renderTime },
+        { title: "首次点击广告时间", dataIndex: "click_time", key: "click_time", width: 280, render: renderTime },
+        { title: "最近一次点击广告时间", dataIndex: "latest_click_time", key: "latest_click_time", width: 280, render: renderTime },
+      ];
+    },
     []
   );
 
