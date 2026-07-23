@@ -1,4 +1,5 @@
-import { Button, DatePicker, Input, Modal, Select, Space, Table, Typography } from "antd";
+import { QuestionCircleOutlined } from "@ant-design/icons";
+import { Button, DatePicker, Input, Modal, Select, Space, Table, Tooltip, Typography } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useFetch from "@/hooks/useFetch";
@@ -89,6 +90,17 @@ const pct = (n: unknown) => {
   const num = toNumber(n);
   return num === null ? "-" : `${num.toFixed(2)}%`;
 };
+
+function MetricTitle({ label, tip }: { label: string; tip: string }) {
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+      {label}
+      <Tooltip title={tip}>
+        <QuestionCircleOutlined style={{ color: "#8c8c8c", fontSize: 13 }} />
+      </Tooltip>
+    </span>
+  );
+}
 
 const normalizeRange = (range: any) => {
   const start_date = range?.[0]?.format ? range[0].format("YYYY-MM-DD") : null;
@@ -284,9 +296,27 @@ function AdAttributionShoppingMeta() {
     { title: "广告花费", dataIndex: "spend", key: "spend", width: 120, fixed: "left", render: (v: number) => usd(v) },
     { title: "注册数", dataIndex: "register", key: "register", width: 100, render: (v: number) => formatNumber(v) },
     // 新增同日归因字段：当天点击首充广告且当天充值的用户，再汇总这些用户当天全部充值。
-    { title: "当日充值用户数", dataIndex: "sameDayPayUsers", key: "dailySameDayPayUsers", width: 140, render: (v: number) => formatNumber(v) },
-    { title: "充值笔数", dataIndex: "sameDayPayOrders", key: "dailySameDayPayOrders", width: 120, render: (v: number) => formatNumber(v) },
-    { title: "总产值金额", dataIndex: "sameDayPayAmount", key: "dailySameDayPayAmount", width: 120, render: (v: number) => usd(v) },
+    {
+      title: <MetricTitle label="当日充值用户数" tip="点击首充广告且在同一自然日完成成功充值的用户数，按 uid 去重" />,
+      dataIndex: "sameDayPayUsers",
+      key: "dailySameDayPayUsers",
+      width: 160,
+      render: (v: number) => formatNumber(v),
+    },
+    {
+      title: <MetricTitle label="充值笔数" tip="当日充值用户数在当天产生的全部成功充值订单数，不仅限于带广告归因的那一笔" />,
+      dataIndex: "sameDayPayOrders",
+      key: "dailySameDayPayOrders",
+      width: 130,
+      render: (v: number) => formatNumber(v),
+    },
+    {
+      title: <MetricTitle label="总产值金额" tip="当日充值用户数全部成功充值订单的 金额 合计，保留两位小数" />,
+      dataIndex: "sameDayPayAmount",
+      key: "dailySameDayPayAmount",
+      width: 140,
+      render: (v: number) => usd(v),
+    },
     { title: "新用户D0 ROAS", dataIndex: "newUserD0Roas", key: "dailyNewUserD0Roas", width: 140, render: (v: number) => pct(v) },
     { title: "D0 ROAS", dataIndex: "sameDayD0Roas", key: "dailySameDayD0Roas", width: 120, render: (v: number) => pct(v) },
     // { title: "充值用户数", dataIndex: "payUsers", key: "payUsers", width: 120, render: (v: number) => formatNumber(v) },
