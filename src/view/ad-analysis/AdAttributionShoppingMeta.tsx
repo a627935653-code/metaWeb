@@ -64,6 +64,12 @@ type AdAttributionShoppingDailyRow = {
   register3dAmount: string;
   register7dAmount: string;
   register14dAmount: string;
+  register30dAmount: number | string;
+  register45dAmount: number | string;
+  register60dAmount: number | string;
+  register90dAmount: number | string;
+  register120dAmount: number | string;
+  register180dAmount: number | string;
   registerYesterdayAmount: number;
   registerUv: number;
   registerRate: number;
@@ -90,6 +96,7 @@ const pct = (n: unknown) => {
   const num = toNumber(n);
   return num === null ? "-" : `${num.toFixed(2)}%`;
 };
+const cumulativeUsd = (n: unknown) => (n === "---" ? n : usd(n));
 
 function MetricTitle({ label, tip }: { label: string; tip: string }) {
   return (
@@ -526,6 +533,12 @@ function AdAttributionShoppingMeta() {
       { label: "CPA(新客首充)", value: (r: AdAttributionShoppingDailyRow) => usd(r.cpaNewPay) },
       { label: "新客充值转化率", value: (r: AdAttributionShoppingDailyRow) => pct(r.newPayRate) },
       { label: "注册数", value: (r: AdAttributionShoppingDailyRow) => formatNumber(r.register) },
+      { label: "D30累计充值", value: (r: AdAttributionShoppingDailyRow) => cumulativeUsd(r.register30dAmount) },
+      { label: "D45累计充值", value: (r: AdAttributionShoppingDailyRow) => cumulativeUsd(r.register45dAmount) },
+      { label: "D60累计充值", value: (r: AdAttributionShoppingDailyRow) => cumulativeUsd(r.register60dAmount) },
+      { label: "D90累计充值", value: (r: AdAttributionShoppingDailyRow) => cumulativeUsd(r.register90dAmount) },
+      { label: "D120累计充值", value: (r: AdAttributionShoppingDailyRow) => cumulativeUsd(r.register120dAmount) },
+      { label: "D180累计充值", value: (r: AdAttributionShoppingDailyRow) => cumulativeUsd(r.register180dAmount) },
       { label: "截止昨日总充值", value: (r: AdAttributionShoppingDailyRow) => usd(r.registerYesterdayAmount) },
       { label: "CPA(注册)", value: (r: AdAttributionShoppingDailyRow) => usd(r.cpaRegister) },
       { label: "独立访客", value: (r: AdAttributionShoppingDailyRow) => formatNumber(r.uv) },
