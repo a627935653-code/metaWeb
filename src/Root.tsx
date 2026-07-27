@@ -7,8 +7,8 @@ import MessageProvider from "./MessageProvider";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 5 * 60 * 1000,
-      gcTime: 30 * 60 * 1000,
+      staleTime: 30 * 60 * 1000,
+      gcTime: 120 * 60 * 1000,
       refetchOnWindowFocus: false,
       refetchOnReconnect: false,
     },
