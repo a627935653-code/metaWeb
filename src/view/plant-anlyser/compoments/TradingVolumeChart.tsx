@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import ReactECharts from "echarts-for-react";
 import { DatePicker, Space, Radio } from "antd";
 import type { RadioChangeEvent } from "antd";
@@ -36,7 +37,6 @@ const TradingVolumeChart = () => {
 
   // --- 组件内部状态 ---
   const { fetchPost } = useFetch();
-  const [loading, setLoading] = useState(false);
   const [chartData, setChartData] = useState<ChartData>({
     xAxis: [],
     series: { listings: [], trades: [], delistings: [] },
@@ -115,83 +115,48 @@ const TradingVolumeChart = () => {
   /**
    * 封装数据获取逻辑
    */
-  const fetchData = useCallback(
-    async (isPolling = false) => {
-      // 仅在非轮询调用时（即用户手动操作），才显示加载动画
-      if (!isPolling) {
-        setLoading(true);
-      }
+  const time = (() => {
+    switch (viewMode) {
+      case "1":
+        return activeDate.format("YYYY");
+      case "2":
+        return activeDate.format("YYYY-MM");
+      case "3":
+        return activeDate.format("YYYY-MM-DD");
+    }
+  })();
 
-      // 重新获取数据时，清空详情显示
-      setSelectedData(null);
-
-      let type = viewMode;
-      let time: string;
-
-      switch (viewMode) {
-        case "1":
-          time = activeDate.format("YYYY");
-          break;
-        case "2":
-          time = activeDate.format("YYYY-MM");
-          break;
-        case "3":
-          time = activeDate.format("YYYY-MM-DD");
-          break;
-      }
-
+  const chartQuery = useQuery<ChartData>({
+    queryKey: ["plant-trading-volume-chart", viewMode, time],
+    queryFn: async () => {
       try {
         const res = await fetchPost({
           path: "/index/statistical-charts",
-          body: JSON.stringify({ type, time }),
+          body: JSON.stringify({ type: viewMode, time }),
         });
-        const transformedData = transformApiData(res?.data || null, {
+        return transformApiData(res?.data || null, {
           mode: viewMode,
           date: activeDate,
         });
-        setChartData(transformedData);
       } catch (error) {
-        console.error("获取交易量数据失败:", error);
-        const emptyData = transformApiData(null, {
+        console.error("鑾峰彇浜ゆ槗閲忔暟鎹け璐?", error);
+        return transformApiData(null, {
           mode: viewMode,
           date: activeDate,
         });
-        setChartData(emptyData);
-      } finally {
-        // 仅在非轮询调用时关闭 loading，避免轮询时图表闪烁
-        if (!isPolling) {
-          setLoading(false);
-        }
       }
     },
-    [viewMode, activeDate]
-  );
+    refetchInterval: 10000,
+  });
 
-  /**
-   * 监听筛选条件变化，触发数据获取
-   */
-  // --- 2. 使用一个 useEffect 来统一处理数据获取和轮询 ---
   useEffect(() => {
-    // (A) 立即执行一次获取数据，以响应用户的筛选操作
-    fetchData(false);
+    if (!chartQuery.data) return;
+    setSelectedData(null);
+    setChartData(chartQuery.data);
+  }, [chartQuery.data]);
 
-    // (B) 设置一个每 5 秒执行一次的定时器
-    const intervalId = setInterval(() => {
-      console.log("轮询交易量数据...");
-      fetchData(true); // 轮询调用，不显示 loading
-    }, 10000); // 5000 毫秒 = 5 秒
+  const loading = chartQuery.isLoading;
 
-    // (C) !!! 关键的清理函数 !!!
-    // 会在组件卸载（离开页面）或依赖项变化时自动执行
-    return () => {
-      console.log("清理交易量图表的定时器。");
-      clearInterval(intervalId); // 销毁定时器，停止轮询
-    };
-  }, [fetchData]); // 依赖于 fetchData 函数
-
-  /**
-   * 动态生成图表配置，使用 useMemo 提升性能
-   */
   const chartOptions = useMemo(() => {
     // 检查 series 数组中是否有真实数值，以此判断是否有数据
     const hasData =

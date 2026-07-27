@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useAtomValue } from "jotai";
 import { viewModeAtom, activeDateAtom } from "@/store/plant-anlyser";
 import { Radio, Select, Table, Pagination, Space } from "antd";
@@ -27,77 +28,74 @@ const RankingList = () => {
     total: 0,
   });
   const [listData, setListData] = useState<RankItem[]>([]);
-  const [loading, setLoading] = useState(false);
 
   const { fetchPost } = useFetch();
 
-  // --- Data Fetching Logic ---
-  useEffect(() => {
-    const fetchRankData = async () => {
-      setLoading(true);
+  const time = (() => {
+    switch (viewMode) {
+      case "1":
+        return activeDate.format("YYYY");
+      case "2":
+        return activeDate.format("YYYY-MM");
+      case "3":
+        return activeDate.format("YYYY-MM-DD");
+    }
+  })();
 
-      let time: string;
-      switch (viewMode) {
-        case "1":
-          time = activeDate.format("YYYY");
-          break;
-        case "2":
-          time = activeDate.format("YYYY-MM");
-          break;
-        case "3":
-          time = activeDate.format("YYYY-MM-DD");
-          break;
-      }
-
-      const body = {
+  const rankQuery = useQuery({
+    queryKey: [
+      "plant-rank-list",
+      viewMode,
+      time,
+      rankType,
+      sort,
+      pagination.page,
+      pagination.limit,
+    ],
+    queryFn: async () => {
+      const res = await fetchPost({
+        path: rankType == "1" ? "/index/top-up-rank" : "/index/withdraw-rank",
+        body: JSON.stringify({
         type: viewMode,
         time,
-        rankType:rankType,
+          rankType,
         sort,
         page: pagination.page,
         limit: pagination.limit,
-      };
+        }),
+      });
 
-      try {
-        const res = await fetchPost({
-          path: rankType=="1"?"/index/top-up-rank":"/index/withdraw-rank",
-          body: JSON.stringify(body),
-        });
+      if (res && res.code === 0 && res.data && res.data.data) {
+        const list = res.data.data.map((item: any, index: number) => ({
+          key: item.uid,
+          rank: res.data.from + index,
+          userName: item.user_info.name,
+          amount: parseFloat(item.total_amount),
+        }));
 
-        // 1. Updated the condition to check for the nested `data` array
-        if (res && res.code === 0 && res.data && res.data.data) {
-          // 2. Updated the mapping logic to match the new response fields
-          const formattedList = res.data.data.map(
-            (item: any, index: number) => ({
-              key: item.uid, // Use uid for the key
-              rank: res.data.from + index, // Calculate rank based on pagination 'from'
-              userName: item.user_info.name, // Access nested user_info object
-              amount: parseFloat(item.total_amount), // Use total_amount field
-            })
-          );
-
-          setListData(formattedList);
-
-          // 3. Update pagination state with total count from the API response
-          setPagination((prev) => ({
-            ...prev,
-            total: res.data.total,
-            page: res.data.current_page, // Also sync the current page
-          }));
-        } else {
-          // If data is empty or request fails, clear the list
-          setListData([]);
-          setPagination((prev) => ({ ...prev, total: 0, page: 1 }));
-        }
-      } catch (error) {
-        console.error("Failed to fetch rank data:", error);
-      } finally {
-        setLoading(false);
+        return {
+          list,
+          total: res.data.total,
+          page: res.data.current_page,
+          limit: pagination.limit,
+        };
       }
-    };
 
-    fetchRankData();
-  }, [viewMode, activeDate, rankType, sort, pagination.page, pagination.limit]);
+      return { list: [], total: 0, page: 1, limit: pagination.limit };
+    },
+  });
+
+  useEffect(() => {
+    if (!rankQuery.data) return;
+    setListData(rankQuery.data.list);
+    setPagination((prev) => ({
+      ...prev,
+      total: rankQuery.data.total,
+      page: rankQuery.data.page,
+    }));
+  }, [rankQuery.data]);
+
+  const loading = rankQuery.isLoading || rankQuery.isFetching;
 
   // Ant Design Table column definitions (unchanged)
   const columns: TableProps<RankItem>["columns"] = [

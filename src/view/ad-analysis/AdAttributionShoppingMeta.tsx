@@ -1,8 +1,10 @@
 import { QuestionCircleOutlined } from "@ant-design/icons";
 import { Button, DatePicker, Input, Modal, Select, Space, Table, Tooltip, Typography } from "antd";
 import type { ColumnsType } from "antd/es/table";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import useFetch from "@/hooks/useFetch";
+import { useMetaPersonnelOptions, useMetaPlatformOptions } from "@/hooks/useMetaOptions";
 
 type AdAttributionShoppingRow = {
   key: string;
@@ -80,6 +82,51 @@ type AdAttributionShoppingDailyRow = {
   ctr: number;
 };
 
+type PayOrderRow = {
+  key: string;
+  user: string;
+  click_time: string;
+  pay_amount: number;
+  pay_time: string;
+};
+
+type NewPayUserRow = {
+  key: string;
+  user: string;
+  click_time: string;
+  register_time: string;
+  first_pay_time: string;
+};
+
+type RegisterUserRow = {
+  key: string;
+  user: string;
+  click_time: string;
+  register_time: string;
+  register_ip: string;
+  is_pay: boolean;
+};
+
+type RegisterYesterdayRow = {
+  key: string;
+  user: string;
+  total_pay_amount: number;
+  register_time: string;
+  click_time: string;
+  latest_click_time: string;
+};
+
+type PagedData<T> = {
+  list: T[];
+  page: number;
+  limit: number;
+  total: number;
+};
+
+type RegisterUsersData = PagedData<RegisterUserRow> & {
+  ipRepeat: string;
+};
+
 const toNumber = (value: unknown) => {
   const num = Number(value);
   return Number.isFinite(num) ? num : null;
@@ -123,17 +170,14 @@ const REGISTER_USERS_DETAIL_PATH = "/meta/registerUserListMeta";
 const REGISTER_YESTERDAY_RANK_PATH = "/meta/registerYesterdayRankMeta";
 
 function AdAttributionShoppingMeta() {
-  const { fetchPost, fetchGET } = useFetch();
+  const { fetchPost } = useFetch();
   const { RangePicker } = DatePicker;
   const { Title } = Typography;
   const [dailyRange, setDailyRange] = useState<any>(null);
   const [dailyBuyer, setDailyBuyer] = useState<string[]>([]);
   const [dailyChannel, setDailyChannel] = useState<string[]>([]);
   const [dailyPlayer, setDailyPlayer] = useState("");
-  const [personnelOptions, setPersonnelOptions] = useState<Array<{ label: string; value: string }>>([]);
-  const [platformOptions, setPlatformOptions] = useState<Array<{ label: string; value: string }>>([]);
   const [dailyTableData, setDailyTableData] = useState<AdAttributionShoppingDailyRow[]>([]);
-  const [dailyTableLoading, setDailyTableLoading] = useState(false);
   const [dailyPagination, setDailyPagination] = useState({ page: 1, limit: 10, total: 0 });
   const [range, setRange] = useState<any>(null);
   const [adName, setAdName] = useState<string>("");
@@ -142,37 +186,22 @@ function AdAttributionShoppingMeta() {
   const [channel, setChannel] = useState<string[]>([]);
   const [player, setPlayer] = useState("");
   const [tableData, setTableData] = useState<AdAttributionShoppingRow[]>([]);
-  const [tableLoading, setTableLoading] = useState(false);
   const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0 });
   const [payOrdersModalOpen, setPayOrdersModalOpen] = useState(false);
-  const [payOrdersLoading, setPayOrdersLoading] = useState(false);
-  const [payOrdersData, setPayOrdersData] = useState<
-    Array<{ key: string; user: string; click_time: string; pay_amount: number; pay_time: string }>
-  >([]);
+  const [payOrdersData, setPayOrdersData] = useState<PayOrderRow[]>([]);
   const [payOrdersPagination, setPayOrdersPagination] = useState({ page: 1, limit: 20, total: 0 });
   const [payOrdersContext, setPayOrdersContext] = useState<{ ad_id: string; date: string } | null>(null);
   const [newPayUsersModalOpen, setNewPayUsersModalOpen] = useState(false);
-  const [newPayUsersLoading, setNewPayUsersLoading] = useState(false);
-  const [newPayUsersData, setNewPayUsersData] = useState<Array<{ key: string; user: string; click_time: string; register_time: string; first_pay_time: string }>>(
-    []
-  );
+  const [newPayUsersData, setNewPayUsersData] = useState<NewPayUserRow[]>([]);
   const [newPayUsersPagination, setNewPayUsersPagination] = useState({ page: 1, limit: 20, total: 0 });
   const [newPayUsersContext, setNewPayUsersContext] = useState<{ ad_id: string; date: string } | null>(null);
   const [registerUsersModalOpen, setRegisterUsersModalOpen] = useState(false);
-  const [registerUsersLoading, setRegisterUsersLoading] = useState(false);
-  const [registerUsersData, setRegisterUsersData] = useState<
-    Array<{ key: string; user: string; click_time: string; register_time: string; register_ip: string; is_pay: boolean }>
-  >(
-    []
-  );
+  const [registerUsersData, setRegisterUsersData] = useState<RegisterUserRow[]>([]);
   const [registerUsersIpRepeat, setRegisterUsersIpRepeat] = useState("");
   const [registerUsersPagination, setRegisterUsersPagination] = useState({ page: 1, limit: 20, total: 0 });
   const [registerUsersContext, setRegisterUsersContext] = useState<{ ad_id: string; date: string } | null>(null);
   const [registerYesterdayModalOpen, setRegisterYesterdayModalOpen] = useState(false);
-  const [registerYesterdayLoading, setRegisterYesterdayLoading] = useState(false);
-  const [registerYesterdayData, setRegisterYesterdayData] = useState<
-    Array<{ key: string; user: string; total_pay_amount: number; register_time: string; click_time: string; latest_click_time: string }>
-  >([]);
+  const [registerYesterdayData, setRegisterYesterdayData] = useState<RegisterYesterdayRow[]>([]);
   const [registerYesterdayPagination, setRegisterYesterdayPagination] = useState({ page: 1, limit: 20, total: 0 });
   const [registerYesterdayContext, setRegisterYesterdayContext] = useState<{
     date: string;
@@ -180,14 +209,6 @@ function AdAttributionShoppingMeta() {
     channels: string[];
     player: string;
   } | null>(null);
-  const dailyFilterKeyRef = useRef<string>("");
-  const detailFilterKeyRef = useRef<string>("");
-  const dailyRequestIdRef = useRef(0);
-  const detailRequestIdRef = useRef(0);
-  const payOrdersRequestIdRef = useRef(0);
-  const newPayUsersRequestIdRef = useRef(0);
-  const registerUsersRequestIdRef = useRef(0);
-  const registerYesterdayRequestIdRef = useRef(0);
 
   const openPayOrdersModal = useCallback((record: AdAttributionShoppingRow) => {
     setPayOrdersContext({ ad_id: record.ad_id, date: record.date });
@@ -261,42 +282,8 @@ function AdAttributionShoppingMeta() {
     return Array.from(new Set(normalized)).join(",");
   }, [dailyChannel, channel]);
 
-  useEffect(() => {
-    let cancelled = false;
-    const fetchPersonnel = async () => {
-      const path = personnelPlatformParam
-        ? `/meta/personnel?platform=${encodeURIComponent(personnelPlatformParam)}`
-        : "/meta/personnel";
-      const res = await fetchGET({ path });
-      if (cancelled) return;
-      if (res?.code === 0 && Array.isArray(res?.data)) {
-        setPersonnelOptions(res.data);
-      } else {
-        setPersonnelOptions([]);
-      }
-    };
-    fetchPersonnel();
-    return () => {
-      cancelled = true;
-    };
-  }, [fetchGET, personnelPlatformParam]);
-
-  useEffect(() => {
-    let cancelled = false;
-    const fetchPlatform = async () => {
-      const res = await fetchGET({ path: "/meta/platform" });
-      if (cancelled) return;
-      if (res?.code === 0 && Array.isArray(res?.data)) {
-        setPlatformOptions(res.data);
-      } else {
-        setPlatformOptions([]);
-      }
-    };
-    fetchPlatform();
-    return () => {
-      cancelled = true;
-    };
-  }, [fetchGET]);
+  const personnelOptions = useMetaPersonnelOptions(personnelPlatformParam).data || [];
+  const platformOptions = useMetaPlatformOptions().data || [];
 
   const dailyColumns: ColumnsType<AdAttributionShoppingDailyRow> = [
     { title: "日期", dataIndex: "date", key: "date", width: 120, fixed: "left" },
@@ -635,135 +622,150 @@ function AdAttributionShoppingMeta() {
     URL.revokeObjectURL(url);
   }, [tableData]);
 
-  useEffect(() => {
-    const rangeParams = normalizeRange(dailyRange);
-    const filterKey = JSON.stringify({
-      ...rangeParams,
-      account_ids: dailyBuyer,
-      channels: dailyChannel,
-      player: dailyPlayer,
-    });
-    if (dailyFilterKeyRef.current !== filterKey && dailyPagination.page !== 1) {
-      setDailyTableData([]);
-      setDailyPagination((prev) => ({ ...prev, page: 1, total: 0 }));
-      return;
-    }
-    dailyFilterKeyRef.current = filterKey;
-    const fetchDailyTableData = async () => {
-      const requestId = ++dailyRequestIdRef.current;
-      setDailyTableLoading(true);
-      try {
-        const res = await fetchPost({
-          path: ROAS_PAY_SUM_PATH,
-          body: JSON.stringify({
-            ...rangeParams,
-            account_ids: dailyBuyer.length ? dailyBuyer : undefined,
-            channels: dailyChannel.length ? dailyChannel : undefined,
-            player: dailyPlayer || undefined,
-            page: dailyPagination.page,
-            limit: dailyPagination.limit,
-          }),
-        });
-        if (requestId !== dailyRequestIdRef.current) return;
-        if (res?.code === 0 && res?.data) {
-          const rawList = Array.isArray(res.data) ? res.data : res.data?.data || [];
-          const mapped = rawList.map((item: AdAttributionShoppingDailyRow, index: number) => ({
-            ...item,
-            key: item.key || item.date || String(index + 1),
-          }));
-          const page = res.page ?? dailyPagination.page;
-          const limit = res.limit ?? dailyPagination.limit;
-          const total = res.total ?? rawList.length;
-          setDailyTableData(mapped);
-          setDailyPagination({ page, limit, total });
-        } else {
-          setDailyTableData([]);
-          setDailyPagination((prev) => ({ ...prev, total: 0 }));
-        }
-      } catch {
-        if (requestId !== dailyRequestIdRef.current) return;
-        setDailyTableData([]);
-        setDailyPagination((prev) => ({ ...prev, total: 0 }));
-      } finally {
-        if (requestId === dailyRequestIdRef.current) {
-          setDailyTableLoading(false);
-        }
-      }
-    };
-
-    fetchDailyTableData();
-  }, [fetchPost, dailyRange, dailyBuyer, dailyChannel, dailyPlayer, dailyPagination.page, dailyPagination.limit]);
+  const dailyRangeParams = useMemo(() => normalizeRange(dailyRange), [dailyRange]);
+  const detailRangeParams = useMemo(() => normalizeRange(range), [range]);
+  const dailyFilterKey = useMemo(
+    () =>
+      JSON.stringify({
+        ...dailyRangeParams,
+        account_ids: dailyBuyer,
+        channels: dailyChannel,
+        player: dailyPlayer,
+      }),
+    [dailyRangeParams, dailyBuyer, dailyChannel, dailyPlayer]
+  );
+  const detailFilterKey = useMemo(
+    () =>
+      JSON.stringify({
+        ...detailRangeParams,
+        ad_name: adName || "",
+        ad_type: adType || "",
+        account_ids: buyer,
+        channels: channel,
+        player,
+      }),
+    [detailRangeParams, adName, adType, buyer, channel, player]
+  );
+  const [dailyAppliedFilterKey, setDailyAppliedFilterKey] = useState(dailyFilterKey);
+  const [detailAppliedFilterKey, setDetailAppliedFilterKey] = useState(detailFilterKey);
 
   useEffect(() => {
-    const rangeParams = normalizeRange(range);
-    const filterKey = JSON.stringify({
-      ...rangeParams,
-      ad_name: adName || "",
-      ad_type: adType || "",
-      account_ids: buyer,
-      channels: channel,
-      player: player,
-    });
-    if (detailFilterKeyRef.current !== filterKey && pagination.page !== 1) {
-      setTableData([]);
-      setPagination((prev) => ({ ...prev, page: 1, total: 0 }));
-      return;
-    }
-    detailFilterKeyRef.current = filterKey;
-    const fetchTableData = async () => {
-      const requestId = ++detailRequestIdRef.current;
-      setTableLoading(true);
-      try {
-        const res = await fetchPost({
-          path: ROAS_PAY_PATH,
-          body: JSON.stringify({
-            ...rangeParams,
-            ad_name: adName || undefined,
-            ad_types: adType ? [Number(adType)] : undefined,
-            account_ids: buyer.length ? buyer : undefined,
-            channels: channel.length ? channel : undefined,
-            player: player || undefined,
-            page: pagination.page,
-            limit: pagination.limit,
-          }),
-        });
-        if (requestId !== detailRequestIdRef.current) return;
-        if (res?.code === 0 && res?.data) {
-          const rawList = Array.isArray(res.data) ? res.data : res.data?.data || [];
-          const mapped = rawList.map((item: AdAttributionShoppingRow, index: number) => ({
-            ...item,
-            key: item.key || (item.ad_id && item.date ? `${item.ad_id}_${item.date}` : undefined) || String(index + 1),
-          }));
-          const page = res.page ?? pagination.page;
-          const limit = res.limit ?? pagination.limit;
-          const total = res.total ?? rawList.length;
-          setTableData(mapped);
-          setPagination({ page, limit, total });
-        } else {
-          setTableData([]);
-          setPagination((prev) => ({ ...prev, total: 0 }));
-        }
-      } catch {
-        if (requestId !== detailRequestIdRef.current) return;
-        setTableData([]);
-        setPagination((prev) => ({ ...prev, total: 0 }));
-      } finally {
-        if (requestId === detailRequestIdRef.current) {
-          setTableLoading(false);
-        }
+    setDailyAppliedFilterKey(dailyFilterKey);
+    setDailyPagination((prev) => (prev.page === 1 ? prev : { ...prev, page: 1, total: 0 }));
+  }, [dailyFilterKey]);
+
+  useEffect(() => {
+    setDetailAppliedFilterKey(detailFilterKey);
+    setPagination((prev) => (prev.page === 1 ? prev : { ...prev, page: 1, total: 0 }));
+  }, [detailFilterKey]);
+
+  const dailyTableQuery = useQuery<PagedData<AdAttributionShoppingDailyRow>>({
+    queryKey: [
+      "meta-roaspaysum-contrast-meta",
+      dailyRangeParams,
+      dailyBuyer,
+      dailyChannel,
+      dailyPlayer,
+      dailyPagination.page,
+      dailyPagination.limit,
+    ],
+    queryFn: async () => {
+      const res = await fetchPost({
+        path: ROAS_PAY_SUM_PATH,
+        body: JSON.stringify({
+          ...dailyRangeParams,
+          account_ids: dailyBuyer.length ? dailyBuyer : undefined,
+          channels: dailyChannel.length ? dailyChannel : undefined,
+          player: dailyPlayer || undefined,
+          page: dailyPagination.page,
+          limit: dailyPagination.limit,
+        }),
+      });
+      if (res?.code === 0 && res?.data) {
+        const rawList = Array.isArray(res.data) ? res.data : res.data?.data || [];
+        const list = rawList.map((item: AdAttributionShoppingDailyRow, index: number) => ({
+          ...item,
+          key: item.key || item.date || String(index + 1),
+        }));
+        return {
+          list,
+          page: res.page ?? dailyPagination.page,
+          limit: res.limit ?? dailyPagination.limit,
+          total: res.total ?? rawList.length,
+        };
       }
-    };
+      return { list: [], page: dailyPagination.page, limit: dailyPagination.limit, total: 0 };
+    },
+    enabled: dailyAppliedFilterKey === dailyFilterKey,
+  });
 
-    fetchTableData();
-  }, [fetchPost, range, adName, adType, buyer, channel, player, pagination.page, pagination.limit]);
+  useEffect(() => {
+    if (!dailyTableQuery.data) return;
+    setDailyTableData(dailyTableQuery.data.list);
+    setDailyPagination((prev) => ({
+      ...prev,
+      page: dailyTableQuery.data.page,
+      limit: dailyTableQuery.data.limit,
+      total: dailyTableQuery.data.total,
+    }));
+  }, [dailyTableQuery.data]);
 
-  const payOrdersColumns: ColumnsType<{
-    key: string;
-    user: string;
-    click_time: string;
-    pay_amount: number;
-    pay_time: string;
-  }> = useMemo(
+  const detailTableQuery = useQuery<PagedData<AdAttributionShoppingRow>>({
+    queryKey: [
+      "meta-roaspay-contrast-meta",
+      detailRangeParams,
+      adName || "",
+      adType || "",
+      buyer,
+      channel,
+      player,
+      pagination.page,
+      pagination.limit,
+    ],
+    queryFn: async () => {
+      const res = await fetchPost({
+        path: ROAS_PAY_PATH,
+        body: JSON.stringify({
+          ...detailRangeParams,
+          ad_name: adName || undefined,
+          ad_types: adType ? [Number(adType)] : undefined,
+          account_ids: buyer.length ? buyer : undefined,
+          channels: channel.length ? channel : undefined,
+          player: player || undefined,
+          page: pagination.page,
+          limit: pagination.limit,
+        }),
+      });
+      if (res?.code === 0 && res?.data) {
+        const rawList = Array.isArray(res.data) ? res.data : res.data?.data || [];
+        const list = rawList.map((item: AdAttributionShoppingRow, index: number) => ({
+          ...item,
+          key: item.key || (item.ad_id && item.date ? `${item.ad_id}_${item.date}` : undefined) || String(index + 1),
+        }));
+        return {
+          list,
+          page: res.page ?? pagination.page,
+          limit: res.limit ?? pagination.limit,
+          total: res.total ?? rawList.length,
+        };
+      }
+      return { list: [], page: pagination.page, limit: pagination.limit, total: 0 };
+    },
+    enabled: detailAppliedFilterKey === detailFilterKey,
+  });
+
+  useEffect(() => {
+    if (!detailTableQuery.data) return;
+    setTableData(detailTableQuery.data.list);
+    setPagination((prev) => ({
+      ...prev,
+      page: detailTableQuery.data.page,
+      limit: detailTableQuery.data.limit,
+      total: detailTableQuery.data.total,
+    }));
+  }, [detailTableQuery.data]);
+
+  const payOrdersColumns: ColumnsType<PayOrderRow> = useMemo(
     () => [
       { title: "用户", dataIndex: "user", key: "user", width: 180 },
       { title: "点击广告时间", dataIndex: "click_time", key: "click_time", width: 180 },
@@ -773,13 +775,7 @@ function AdAttributionShoppingMeta() {
     []
   );
 
-  const newPayUsersColumns: ColumnsType<{
-    key: string;
-    user: string;
-    click_time: string;
-    register_time: string;
-    first_pay_time: string;
-  }> = useMemo(
+  const newPayUsersColumns: ColumnsType<NewPayUserRow> = useMemo(
     () => [
       { title: "用户", dataIndex: "user", key: "user", width: 220 },
       { title: "点击广告时间", dataIndex: "click_time", key: "click_time", width: 260 },
@@ -789,14 +785,7 @@ function AdAttributionShoppingMeta() {
     []
   );
 
-  const registerUsersColumns: ColumnsType<{
-    key: string;
-    user: string;
-    click_time: string;
-    register_time: string;
-    register_ip: string;
-    is_pay: boolean;
-  }> = useMemo(
+  const registerUsersColumns: ColumnsType<RegisterUserRow> = useMemo(
     () => [
       {
         title: "用户",
@@ -812,14 +801,7 @@ function AdAttributionShoppingMeta() {
     []
   );
 
-  const registerYesterdayColumns: ColumnsType<{
-    key: string;
-    user: string;
-    total_pay_amount: number;
-    register_time: string;
-    click_time: string;
-    latest_click_time: string;
-  }> = useMemo(
+  const registerYesterdayColumns: ColumnsType<RegisterYesterdayRow> = useMemo(
     () => {
       const renderTime = (value: string) => <span style={{ whiteSpace: "pre-line" }}>{value}</span>;
       return [
@@ -833,234 +815,235 @@ function AdAttributionShoppingMeta() {
     []
   );
 
-  useEffect(() => {
-    if (!payOrdersModalOpen || !payOrdersContext) return;
-    const fetchPayOrders = async () => {
-      const requestId = ++payOrdersRequestIdRef.current;
-      setPayOrdersLoading(true);
-      try {
-        const res = await fetchPost({
-          path: PAY_ORDERS_DETAIL_PATH,
-          body: JSON.stringify({
-            ad_id: payOrdersContext.ad_id,
-            date: payOrdersContext.date,
-            page: payOrdersPagination.page,
-            limit: payOrdersPagination.limit,
-          }),
-        });
-        if (requestId !== payOrdersRequestIdRef.current) return;
-        if (res?.code === 0 && res?.data) {
-          const rawList = Array.isArray(res.data) ? res.data : res.data?.list || res.data?.data || [];
-          const mapped = rawList.map((item: any, index: number) => ({
-            key:
-              item?.key ||
-              item?.id ||
-              `${payOrdersContext.ad_id}_${payOrdersContext.date}_${index + 1}`,
-            user: item?.user ?? item?.uid ?? item?.user_id ?? "-",
-            click_time: item?.click_time ?? item?.click_ad_time ?? item?.clickAt ?? "-",
-            pay_amount: toNumber(item?.pay_amount ?? item?.amount) || 0,
-            pay_time: item?.pay_time ?? item?.payAt ?? "-",
-          }));
-          const page = res.page ?? payOrdersPagination.page;
-          const limit = res.limit ?? payOrdersPagination.limit;
-          const total = res.total ?? res.data?.total ?? rawList.length;
-          setPayOrdersData(mapped);
-          setPayOrdersPagination({ page, limit, total });
-        } else {
-          setPayOrdersData([]);
-          setPayOrdersPagination((prev) => ({ ...prev, total: 0 }));
-        }
-      } catch {
-        if (requestId !== payOrdersRequestIdRef.current) return;
-        setPayOrdersData([]);
-        setPayOrdersPagination((prev) => ({ ...prev, total: 0 }));
-      } finally {
-        if (requestId === payOrdersRequestIdRef.current) {
-          setPayOrdersLoading(false);
-        }
+  const payOrdersQuery = useQuery<PagedData<PayOrderRow>>({
+    queryKey: [
+      "meta-pay-orders-list-contrast-meta",
+      payOrdersContext?.ad_id || "",
+      payOrdersContext?.date || "",
+      payOrdersPagination.page,
+      payOrdersPagination.limit,
+    ],
+    queryFn: async () => {
+      const res = await fetchPost({
+        path: PAY_ORDERS_DETAIL_PATH,
+        body: JSON.stringify({
+          ad_id: payOrdersContext?.ad_id,
+          date: payOrdersContext?.date,
+          page: payOrdersPagination.page,
+          limit: payOrdersPagination.limit,
+        }),
+      });
+      if (res?.code === 0 && res?.data && payOrdersContext) {
+        const rawList = Array.isArray(res.data) ? res.data : res.data?.list || res.data?.data || [];
+        const list = rawList.map((item: any, index: number) => ({
+          key:
+            item?.key ||
+            item?.id ||
+            `${payOrdersContext.ad_id}_${payOrdersContext.date}_${index + 1}`,
+          user: item?.user ?? item?.uid ?? item?.user_id ?? "-",
+          click_time: item?.click_time ?? item?.click_ad_time ?? item?.clickAt ?? "-",
+          pay_amount: toNumber(item?.pay_amount ?? item?.amount) || 0,
+          pay_time: item?.pay_time ?? item?.payAt ?? "-",
+        }));
+        return {
+          list,
+          page: res.page ?? payOrdersPagination.page,
+          limit: res.limit ?? payOrdersPagination.limit,
+          total: res.total ?? res.data?.total ?? rawList.length,
+        };
       }
-    };
-    fetchPayOrders();
-  }, [
-    fetchPost,
-    payOrdersModalOpen,
-    payOrdersContext,
-    payOrdersPagination.page,
-    payOrdersPagination.limit,
-  ]);
+      return { list: [], page: payOrdersPagination.page, limit: payOrdersPagination.limit, total: 0 };
+    },
+    enabled: payOrdersModalOpen && !!payOrdersContext,
+  });
 
   useEffect(() => {
-    if (!newPayUsersModalOpen || !newPayUsersContext) return;
-    const fetchNewPayUsers = async () => {
-      const requestId = ++newPayUsersRequestIdRef.current;
-      setNewPayUsersLoading(true);
-      try {
-        const res = await fetchPost({
-          path: NEW_PAY_USERS_DETAIL_PATH,
-          body: JSON.stringify({
-            ad_id: newPayUsersContext.ad_id,
-            date: newPayUsersContext.date,
-            page: newPayUsersPagination.page,
-            limit: newPayUsersPagination.limit,
-          }),
-        });
-        if (requestId !== newPayUsersRequestIdRef.current) return;
-        if (res?.code === 0 && res?.data) {
-          const rawList = Array.isArray(res.data) ? res.data : res.data?.list || res.data?.data || [];
-          const mapped = rawList.map((item: any, index: number) => ({
-            key:
-              item?.key ||
-              item?.id ||
-              `${newPayUsersContext.ad_id}_${newPayUsersContext.date}_${index + 1}`,
-            user: item?.user ?? "-",
-            click_time: item?.click_time ??  "-",
-            register_time: item?.register_time  ?? "-",
-            first_pay_time: item?.first_pay_time ?? "-",
-          }));
-          const page = res.page ?? newPayUsersPagination.page;
-          const limit = res.limit ?? newPayUsersPagination.limit;
-          const total = res.total ?? res.data?.total ?? rawList.length;
-          setNewPayUsersData(mapped);
-          setNewPayUsersPagination({ page, limit, total });
-        } else {
-          setNewPayUsersData([]);
-          setNewPayUsersPagination((prev) => ({ ...prev, total: 0 }));
-        }
-      } catch {
-        if (requestId !== newPayUsersRequestIdRef.current) return;
-        setNewPayUsersData([]);
-        setNewPayUsersPagination((prev) => ({ ...prev, total: 0 }));
-      } finally {
-        if (requestId === newPayUsersRequestIdRef.current) {
-          setNewPayUsersLoading(false);
-        }
+    if (!payOrdersQuery.data) return;
+    setPayOrdersData(payOrdersQuery.data.list);
+    setPayOrdersPagination((prev) => ({
+      ...prev,
+      page: payOrdersQuery.data.page,
+      limit: payOrdersQuery.data.limit,
+      total: payOrdersQuery.data.total,
+    }));
+  }, [payOrdersQuery.data]);
+
+  const newPayUsersQuery = useQuery<PagedData<NewPayUserRow>>({
+    queryKey: [
+      "meta-new-pay-user-list-contrast-meta",
+      newPayUsersContext?.ad_id || "",
+      newPayUsersContext?.date || "",
+      newPayUsersPagination.page,
+      newPayUsersPagination.limit,
+    ],
+    queryFn: async () => {
+      const res = await fetchPost({
+        path: NEW_PAY_USERS_DETAIL_PATH,
+        body: JSON.stringify({
+          ad_id: newPayUsersContext?.ad_id,
+          date: newPayUsersContext?.date,
+          page: newPayUsersPagination.page,
+          limit: newPayUsersPagination.limit,
+        }),
+      });
+      if (res?.code === 0 && res?.data && newPayUsersContext) {
+        const rawList = Array.isArray(res.data) ? res.data : res.data?.list || res.data?.data || [];
+        const list = rawList.map((item: any, index: number) => ({
+          key:
+            item?.key ||
+            item?.id ||
+            `${newPayUsersContext.ad_id}_${newPayUsersContext.date}_${index + 1}`,
+          user: item?.user ?? "-",
+          click_time: item?.click_time ?? "-",
+          register_time: item?.register_time ?? "-",
+          first_pay_time: item?.first_pay_time ?? "-",
+        }));
+        return {
+          list,
+          page: res.page ?? newPayUsersPagination.page,
+          limit: res.limit ?? newPayUsersPagination.limit,
+          total: res.total ?? res.data?.total ?? rawList.length,
+        };
       }
-    };
-    fetchNewPayUsers();
-  }, [
-    fetchPost,
-    newPayUsersModalOpen,
-    newPayUsersContext,
-    newPayUsersPagination.page,
-    newPayUsersPagination.limit,
-  ]);
+      return { list: [], page: newPayUsersPagination.page, limit: newPayUsersPagination.limit, total: 0 };
+    },
+    enabled: newPayUsersModalOpen && !!newPayUsersContext,
+  });
 
   useEffect(() => {
-    if (!registerUsersModalOpen || !registerUsersContext) return;
-    const fetchRegisterUsers = async () => {
-      const requestId = ++registerUsersRequestIdRef.current;
-      setRegisterUsersLoading(true);
-      try {
-        const res = await fetchPost({
-          path: REGISTER_USERS_DETAIL_PATH,
-          body: JSON.stringify({
-            ad_id: registerUsersContext.ad_id,
-            date: registerUsersContext.date,
-            page: registerUsersPagination.page,
-            limit: registerUsersPagination.limit,
-          }),
-        });
-        if (requestId !== registerUsersRequestIdRef.current) return;
-        if (res?.code === 0 && res?.data) {
-          const rawList = Array.isArray(res.data) ? res.data : res.data?.list || res.data?.data || [];
-          const mapped = rawList.map((item: any, index: number) => ({
-            key:
-              item?.key ||
-              item?.id ||
-              `${registerUsersContext.ad_id}_${registerUsersContext.date}_${index + 1}`,
-            user: item?.user ?? "-",
-            click_time: item?.click_time ?? "-",
-            register_time: item?.register_time ?? "-",
-            register_ip: item?.register_ip ?? "-",
-            is_pay: item?.is_pay === true,
-          }));
-          const ipRepeat = typeof res?.ip_repeat === "string" ? res.ip_repeat : "";
-          const page = res.page ?? registerUsersPagination.page;
-          const limit = res.limit ?? registerUsersPagination.limit;
-          const total = res.total ?? res.data?.total ?? rawList.length;
-          setRegisterUsersData(mapped);
-          setRegisterUsersIpRepeat(ipRepeat);
-          setRegisterUsersPagination({ page, limit, total });
-        } else {
-          setRegisterUsersData([]);
-          setRegisterUsersIpRepeat("");
-          setRegisterUsersPagination((prev) => ({ ...prev, total: 0 }));
-        }
-      } catch {
-        if (requestId !== registerUsersRequestIdRef.current) return;
-        setRegisterUsersData([]);
-        setRegisterUsersIpRepeat("");
-        setRegisterUsersPagination((prev) => ({ ...prev, total: 0 }));
-      } finally {
-        if (requestId === registerUsersRequestIdRef.current) {
-          setRegisterUsersLoading(false);
-        }
+    if (!newPayUsersQuery.data) return;
+    setNewPayUsersData(newPayUsersQuery.data.list);
+    setNewPayUsersPagination((prev) => ({
+      ...prev,
+      page: newPayUsersQuery.data.page,
+      limit: newPayUsersQuery.data.limit,
+      total: newPayUsersQuery.data.total,
+    }));
+  }, [newPayUsersQuery.data]);
+
+  const registerUsersQuery = useQuery<RegisterUsersData>({
+    queryKey: [
+      "meta-register-user-list-contrast-meta",
+      registerUsersContext?.ad_id || "",
+      registerUsersContext?.date || "",
+      registerUsersPagination.page,
+      registerUsersPagination.limit,
+    ],
+    queryFn: async () => {
+      const res = await fetchPost({
+        path: REGISTER_USERS_DETAIL_PATH,
+        body: JSON.stringify({
+          ad_id: registerUsersContext?.ad_id,
+          date: registerUsersContext?.date,
+          page: registerUsersPagination.page,
+          limit: registerUsersPagination.limit,
+        }),
+      });
+      if (res?.code === 0 && res?.data && registerUsersContext) {
+        const rawList = Array.isArray(res.data) ? res.data : res.data?.list || res.data?.data || [];
+        const list = rawList.map((item: any, index: number) => ({
+          key:
+            item?.key ||
+            item?.id ||
+            `${registerUsersContext.ad_id}_${registerUsersContext.date}_${index + 1}`,
+          user: item?.user ?? "-",
+          click_time: item?.click_time ?? "-",
+          register_time: item?.register_time ?? "-",
+          register_ip: item?.register_ip ?? "-",
+          is_pay: item?.is_pay === true,
+        }));
+        return {
+          list,
+          ipRepeat: typeof res?.ip_repeat === "string" ? res.ip_repeat : "",
+          page: res.page ?? registerUsersPagination.page,
+          limit: res.limit ?? registerUsersPagination.limit,
+          total: res.total ?? res.data?.total ?? rawList.length,
+        };
       }
-    };
-    fetchRegisterUsers();
-  }, [
-    fetchPost,
-    registerUsersModalOpen,
-    registerUsersContext,
-    registerUsersPagination.page,
-    registerUsersPagination.limit,
-  ]);
+      return {
+        list: [],
+        ipRepeat: "",
+        page: registerUsersPagination.page,
+        limit: registerUsersPagination.limit,
+        total: 0,
+      };
+    },
+    enabled: registerUsersModalOpen && !!registerUsersContext,
+  });
 
   useEffect(() => {
-    if (!registerYesterdayModalOpen || !registerYesterdayContext) return;
-    const fetchRegisterYesterdayRank = async () => {
-      const requestId = ++registerYesterdayRequestIdRef.current;
-      setRegisterYesterdayLoading(true);
-      try {
-        const res = await fetchPost({
-          path: REGISTER_YESTERDAY_RANK_PATH,
-          body: JSON.stringify({
-            date: registerYesterdayContext.date,
-            account_ids: registerYesterdayContext.account_ids.length ? registerYesterdayContext.account_ids : undefined,
-            channels: registerYesterdayContext.channels.length ? registerYesterdayContext.channels : undefined,
-            player: registerYesterdayContext.player || undefined,
-            page: registerYesterdayPagination.page,
-            limit: registerYesterdayPagination.limit,
-          }),
-        });
-        if (requestId !== registerYesterdayRequestIdRef.current) return;
-        if (res?.code === 0 && res?.data) {
-          const rawList = Array.isArray(res.data) ? res.data : res.data?.list || res.data?.data || [];
-          const mapped = rawList.map((item: any, index: number) => ({
-            key: item?.key || item?.uid || `${registerYesterdayContext.date}_${index + 1}`,
-            user: item?.user ?? "-",
-            total_pay_amount: toNumber(item?.total_pay_amount) || 0,
-            register_time: item?.register_time ?? "-",
-            click_time: item?.click_time ?? "-",
-            latest_click_time: item?.latest_click_time ?? "-",
-          }));
-          const page = res.page ?? registerYesterdayPagination.page;
-          const limit = res.limit ?? registerYesterdayPagination.limit;
-          const total = res.total ?? res.data?.total ?? rawList.length;
-          setRegisterYesterdayData(mapped);
-          setRegisterYesterdayPagination({ page, limit, total });
-        } else {
-          setRegisterYesterdayData([]);
-          setRegisterYesterdayPagination((prev) => ({ ...prev, total: 0 }));
-        }
-      } catch {
-        if (requestId !== registerYesterdayRequestIdRef.current) return;
-        setRegisterYesterdayData([]);
-        setRegisterYesterdayPagination((prev) => ({ ...prev, total: 0 }));
-      } finally {
-        if (requestId === registerYesterdayRequestIdRef.current) {
-          setRegisterYesterdayLoading(false);
-        }
+    if (!registerUsersQuery.data) return;
+    setRegisterUsersData(registerUsersQuery.data.list);
+    setRegisterUsersIpRepeat(registerUsersQuery.data.ipRepeat);
+    setRegisterUsersPagination((prev) => ({
+      ...prev,
+      page: registerUsersQuery.data.page,
+      limit: registerUsersQuery.data.limit,
+      total: registerUsersQuery.data.total,
+    }));
+  }, [registerUsersQuery.data]);
+
+  const registerYesterdayQuery = useQuery<PagedData<RegisterYesterdayRow>>({
+    queryKey: [
+      "meta-register-yesterday-rank-contrast-meta",
+      registerYesterdayContext?.date || "",
+      registerYesterdayContext?.account_ids || [],
+      registerYesterdayContext?.channels || [],
+      registerYesterdayContext?.player || "",
+      registerYesterdayPagination.page,
+      registerYesterdayPagination.limit,
+    ],
+    queryFn: async () => {
+      const res = await fetchPost({
+        path: REGISTER_YESTERDAY_RANK_PATH,
+        body: JSON.stringify({
+          date: registerYesterdayContext?.date,
+          account_ids: registerYesterdayContext?.account_ids.length ? registerYesterdayContext.account_ids : undefined,
+          channels: registerYesterdayContext?.channels.length ? registerYesterdayContext.channels : undefined,
+          player: registerYesterdayContext?.player || undefined,
+          page: registerYesterdayPagination.page,
+          limit: registerYesterdayPagination.limit,
+        }),
+      });
+      if (res?.code === 0 && res?.data && registerYesterdayContext) {
+        const rawList = Array.isArray(res.data) ? res.data : res.data?.list || res.data?.data || [];
+        const list = rawList.map((item: any, index: number) => ({
+          key: item?.key || item?.uid || `${registerYesterdayContext.date}_${index + 1}`,
+          user: item?.user ?? "-",
+          total_pay_amount: toNumber(item?.total_pay_amount) || 0,
+          register_time: item?.register_time ?? "-",
+          click_time: item?.click_time ?? "-",
+          latest_click_time: item?.latest_click_time ?? "-",
+        }));
+        return {
+          list,
+          page: res.page ?? registerYesterdayPagination.page,
+          limit: res.limit ?? registerYesterdayPagination.limit,
+          total: res.total ?? res.data?.total ?? rawList.length,
+        };
       }
-    };
-    fetchRegisterYesterdayRank();
-  }, [
-    fetchPost,
-    registerYesterdayModalOpen,
-    registerYesterdayContext,
-    registerYesterdayPagination.page,
-    registerYesterdayPagination.limit,
-  ]);
+      return { list: [], page: registerYesterdayPagination.page, limit: registerYesterdayPagination.limit, total: 0 };
+    },
+    enabled: registerYesterdayModalOpen && !!registerYesterdayContext,
+  });
+
+  useEffect(() => {
+    if (!registerYesterdayQuery.data) return;
+    setRegisterYesterdayData(registerYesterdayQuery.data.list);
+    setRegisterYesterdayPagination((prev) => ({
+      ...prev,
+      page: registerYesterdayQuery.data.page,
+      limit: registerYesterdayQuery.data.limit,
+      total: registerYesterdayQuery.data.total,
+    }));
+  }, [registerYesterdayQuery.data]);
+
+  const dailyTableLoading = dailyTableQuery.isLoading || dailyTableQuery.isFetching;
+  const tableLoading = detailTableQuery.isLoading || detailTableQuery.isFetching;
+  const payOrdersLoading = payOrdersQuery.isLoading || payOrdersQuery.isFetching;
+  const newPayUsersLoading = newPayUsersQuery.isLoading || newPayUsersQuery.isFetching;
+  const registerUsersLoading = registerUsersQuery.isLoading || registerUsersQuery.isFetching;
+  const registerYesterdayLoading = registerYesterdayQuery.isLoading || registerYesterdayQuery.isFetching;
 
   return (
     <div style={{ padding: 16 }}>

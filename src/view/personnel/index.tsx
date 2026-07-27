@@ -1,10 +1,11 @@
 import PageComponent from "@/components/PageComponent";
 import type { FieldsType } from "@/components/FilterGroup";
 import useFetch from "@/hooks/useFetch";
+import { useMetaPlatformOptions } from "@/hooks/useMetaOptions";
 import { Button, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Switch, Tag } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { Plus } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 
 type PlatformType = string;
 
@@ -32,7 +33,6 @@ const LIST_PATH = "/personnel/list";
 const ADD_PATH = "/personnel/create";
 const EDIT_PATH = "/personnel/update";
 const DEL_PATH = "/personnel/delete";
-const PLATFORM_PATH = "/meta/platform";
 
 const statusSelectOptions: Array<{ label: string; value: 0 | 1 }> = [
   { label: "正常", value: 1 },
@@ -40,30 +40,13 @@ const statusSelectOptions: Array<{ label: string; value: 0 | 1 }> = [
 ];
 
 export default function Personnel() {
-  const { fetchPost, fetchGET } = useFetch();
+  const { fetchPost } = useFetch();
   const ref = useRef<any>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<PersonnelRow | null>(null);
   const [saving, setSaving] = useState(false);
   const [form] = Form.useForm<PersonnelFormValues>();
-  const [platformOptions, setPlatformOptions] = useState<Array<{ label: string; value: string }>>([]);
-
-  useEffect(() => {
-    let cancelled = false;
-    const fetchPlatform = async () => {
-      const res = await fetchGET({ path: PLATFORM_PATH });
-      if (cancelled) return;
-      if (res?.code === 0 && Array.isArray(res?.data)) {
-        setPlatformOptions(res.data);
-      } else {
-        setPlatformOptions([]);
-      }
-    };
-    fetchPlatform();
-    return () => {
-      cancelled = true;
-    };
-  }, [fetchGET]);
+  const platformOptions = useMetaPlatformOptions().data || [];
 
   const fields: FieldsType[] = useMemo(
     () => [

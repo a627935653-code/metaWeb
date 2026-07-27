@@ -17,8 +17,10 @@ import {
   Empty,
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
+import { useQuery } from "@tanstack/react-query";
 import useFetch from "@/hooks/useFetch";
 import useAuth from "@/hooks/useAuth";
+import { useMetaPersonnelOptions, useMetaPlatformOptions } from "@/hooks/useMetaOptions";
 import { ExclamationCircleFilled } from "@ant-design/icons";
 
 const { Title, Text } = Typography;
@@ -97,6 +99,13 @@ type RetentionRow = {
   day60Roas: number;
   day90Amount: number;
   day90Roas: number;
+};
+
+type PagedData<T> = {
+  list: T[];
+  page: number;
+  limit: number;
+  total: number;
 };
 
 /** ===================== Constants ===================== */
@@ -498,7 +507,7 @@ const retentionColumns: ColumnsType<RetentionRow> = [
 
 /** ===================== Page ===================== */
 function PlantAnlyser() {
-  const { fetchPost, fetchGET } = useFetch();
+  const { fetchPost } = useFetch();
   const { userInfo } = useAuth();
   const hideRestrictedSections = Number(userInfo?.user?.type) === 2;
   const [kpis, setKpis] = useState<Kpi[]>([]);
@@ -507,14 +516,6 @@ function PlantAnlyser() {
   const [tablePagination, setTablePagination] = useState({ page: 1, limit: 10, total: 0 });
   const [retentionData, setRetentionData] = useState<RetentionRow[]>([]);
   const [retentionPagination, setRetentionPagination] = useState({ page: 1, limit: 10, total: 0 });
-  const [tableLoading, setTableLoading] = useState(false);
-  const [retentionLoading, setRetentionLoading] = useState(false);
-  const [personnelOptions, setPersonnelOptions] = useState<Array<{ label: string; value: string }>>([]);
-  const [platformOptions, setPlatformOptions] = useState<Array<{ label: string; value: string }>>([]);
-  const tableFilterKeyRef = useRef<string>("");
-  const retentionFilterKeyRef = useRef<string>("");
-  const tableRequestIdRef = useRef(0);
-  const retentionRequestIdRef = useRef(0);
   const exportCSV = useCallback((rows: any[], cols: Array<{ label: string; value: (row: any) => string | number }>, filename: string) => {
     const header = cols.map((c) => c.label).join(",");
     const body = rows
@@ -620,49 +621,54 @@ function PlantAnlyser() {
     return Array.from(new Set(normalized)).join(",");
   }, [kpiChannel, trendChannel, tableChannel, retentionChannel]);
 
-  useEffect(() => {
-    let cancelled = false;
-    const fetchPersonnel = async () => {
-      const path = personnelPlatformParam
-        ? `/meta/personnel?platform=${encodeURIComponent(personnelPlatformParam)}`
-        : "/meta/personnel";
-      const res = await fetchGET({ path });
-      if (cancelled) return;
-      if (res?.code === 0 && Array.isArray(res?.data)) {
-        setPersonnelOptions(res.data);
-      } else {
-        setPersonnelOptions([]);
-      }
-    };
-    fetchPersonnel();
-    return () => {
-      cancelled = true;
-    };
-  }, [fetchGET, personnelPlatformParam]);
+  const personnelOptions = useMetaPersonnelOptions(personnelPlatformParam).data || [];
+  const platformOptions = useMetaPlatformOptions().data || [];
+
+  const kpiRangeParams = useMemo(() => normalizeRange(kpiRange), [kpiRange]);
+  const trendRangeParams = useMemo(() => normalizeRange(trendRange), [trendRange]);
+  const tableRangeParams = useMemo(() => normalizeRange(tableRange), [tableRange]);
+  const retentionRangeParams = useMemo(() => normalizeRange(retentionRange), [retentionRange]);
+
+  const tableFilterKey = useMemo(
+    () =>
+      JSON.stringify({
+        ...tableRangeParams,
+        ad_types: tableMaterialType || [],
+        account_ids: tableBuyer,
+        channels: tableChannel,
+      }),
+    [tableRangeParams, tableMaterialType, tableBuyer, tableChannel]
+  );
+  const retentionFilterKey = useMemo(
+    () =>
+      JSON.stringify({
+        ...retentionRangeParams,
+        ad_types: retentionMaterialType || [],
+        account_ids: retentionBuyer,
+        channels: retentionChannel,
+      }),
+    [retentionRangeParams, retentionMaterialType, retentionBuyer, retentionChannel]
+  );
+  const [tableAppliedFilterKey, setTableAppliedFilterKey] = useState(tableFilterKey);
+  const [retentionAppliedFilterKey, setRetentionAppliedFilterKey] = useState(retentionFilterKey);
 
   useEffect(() => {
-    let cancelled = false;
-    const fetchPlatform = async () => {
-      const res = await fetchGET({ path: "/meta/platform" });
-      if (cancelled) return;
-      if (res?.code === 0 && Array.isArray(res?.data)) {
-        setPlatformOptions(res.data);
-      } else {
-        setPlatformOptions([]);
-      }
-    };
-    fetchPlatform();
-    return () => {
-      cancelled = true;
-    };
-  }, [fetchGET]);
+    setTableAppliedFilterKey(tableFilterKey);
+    setTablePagination((prev) => (prev.page === 1 ? prev : { ...prev, page: 1, total: 0 }));
+  }, [tableFilterKey]);
 
   useEffect(() => {
-    const fetchKpiData = async () => {
+    setRetentionAppliedFilterKey(retentionFilterKey);
+    setRetentionPagination((prev) => (prev.page === 1 ? prev : { ...prev, page: 1, total: 0 }));
+  }, [retentionFilterKey]);
+
+  const kpiQuery = useQuery({
+    queryKey: ["meta-kpi", kpiRangeParams, kpiMaterialType || [], kpiBuyer, kpiChannel],
+    queryFn: async () => {
       const res = await fetchPost({
         path: KPI_PATH,
         body: JSON.stringify({
-          ...normalizeRange(kpiRange),
+          ...kpiRangeParams,
           ad_types: kpiMaterialType?.map((v) => Number(v)),
           account_ids: kpiBuyer.length ? kpiBuyer : undefined,
           channels: kpiChannel.length ? kpiChannel : undefined,
@@ -670,21 +676,26 @@ function PlantAnlyser() {
       });
       if (res?.code === 0 && res?.data) {
         const data = Array.isArray(res.data) ? res.data?.[0] || {} : res.data;
-        setKpis(buildKpis(data));
-      } else {
-        setKpis(buildKpis());
+        return buildKpis(data);
       }
-    };
-
-    fetchKpiData();
-  }, [fetchPost, kpiRange, kpiBuyer, kpiChannel, kpiMaterialType]);
+      return buildKpis();
+    },
+    enabled: !hideRestrictedSections,
+  });
 
   useEffect(() => {
-    const fetchTrendData = async () => {
+    if (kpiQuery.data) {
+      setKpis(kpiQuery.data);
+    }
+  }, [kpiQuery.data]);
+
+  const trendQuery = useQuery({
+    queryKey: ["meta-trend", trendRangeParams, trendMaterialType || [], trendBuyer, trendChannel],
+    queryFn: async () => {
       const res = await fetchPost({
         path: TREND_PATH,
         body: JSON.stringify({
-          ...normalizeRange(trendRange),
+          ...trendRangeParams,
           ad_types: trendMaterialType?.map((v) => Number(v)),
           account_ids: trendBuyer.length ? trendBuyer : undefined,
           channels: trendChannel.length ? trendChannel : undefined,
@@ -711,8 +722,7 @@ function PlantAnlyser() {
               });
             });
           });
-          const filtered = points.filter((item) => ALL_METRICS.includes(item.metric));
-          setTrendData(filtered);
+          return points.filter((item) => ALL_METRICS.includes(item.metric));
         } else {
           const rawList: TrendPoint[] = Array.isArray(res.data) ? res.data : res.data?.data || [];
           const mapped = rawList.map((item) => ({
@@ -720,154 +730,124 @@ function PlantAnlyser() {
             metric: METRIC_LABEL_MAP[item.metric] ?? item.metric,
             value: toNumber(item.value) ?? 0,
           }));
-          const filtered = mapped.filter((item) => ALL_METRICS.includes(item.metric));
-          setTrendData(filtered);
+          return mapped.filter((item) => ALL_METRICS.includes(item.metric));
         }
-      } else {
-        setTrendData([]);
       }
-    };
-
-    fetchTrendData();
-  }, [fetchPost, trendRange, trendMaterialType, trendBuyer, trendChannel]);
+      return [];
+    },
+    enabled: !hideRestrictedSections,
+  });
 
   useEffect(() => {
-    const rangeParams = normalizeRange(tableRange);
-    const filterKey = JSON.stringify({
-      ...rangeParams,
-      ad_types: tableMaterialType || [],
-      account_ids: tableBuyer,
-      channels: tableChannel,
-    });
-    if (tableFilterKeyRef.current !== filterKey && tablePagination.page !== 1) {
-      setTableData([]);
-      setTablePagination((prev) => ({ ...prev, page: 1, total: 0 }));
-      return;
+    if (trendQuery.data) {
+      setTrendData(trendQuery.data);
     }
-    tableFilterKeyRef.current = filterKey;
-    const fetchOverviewData = async () => {
-      const requestId = ++tableRequestIdRef.current;
-      setTableLoading(true);
-      try {
-        const res = await fetchPost({
-          path: OVERVIEW_PATH,
-          body: JSON.stringify({
-            ...rangeParams,
-            ad_types: tableMaterialType?.map((v) => Number(v)),
-            account_ids: tableBuyer.length ? tableBuyer : undefined,
-            channels: tableChannel.length ? tableChannel : undefined,
-            page: tablePagination.page,
-            limit: tablePagination.limit,
-          }),
-        });
-        if (requestId !== tableRequestIdRef.current) return;
-        if (res?.code === 0 && res?.data) {
-          const rawList = Array.isArray(res.data) ? res.data : res.data?.data || [];
-          const mapped = rawList.map((item: TableRow, index: number) => ({
-            ...item,
-            key: item.key || item.date || String(index + 1),
-          }));
-          const page = res.page ?? tablePagination.page;
-          const limit = res.limit ?? tablePagination.limit;
-          const total = res.total ?? rawList.length;
-          setTableData(mapped);
-          setTablePagination({ page, limit, total });
-        } else {
-          setTableData([]);
-          setTablePagination((prev) => ({ ...prev, total: 0 }));
-        }
-      } catch {
-        if (requestId !== tableRequestIdRef.current) return;
-        setTableData([]);
-        setTablePagination((prev) => ({ ...prev, total: 0 }));
-      } finally {
-        if (requestId === tableRequestIdRef.current) {
-          setTableLoading(false);
-        }
-      }
-    };
+  }, [trendQuery.data]);
 
-    fetchOverviewData();
-  }, [
-    fetchPost,
-    tableRange,
-    tableBuyer,
-    tableChannel,
-    tableMaterialType,
-    tablePagination.page,
-    tablePagination.limit,
-  ]);
+  const overviewQuery = useQuery<PagedData<TableRow>>({
+    queryKey: [
+      "meta-overview",
+      tableRangeParams,
+      tableMaterialType || [],
+      tableBuyer,
+      tableChannel,
+      tablePagination.page,
+      tablePagination.limit,
+    ],
+    queryFn: async () => {
+      const res = await fetchPost({
+        path: OVERVIEW_PATH,
+        body: JSON.stringify({
+          ...tableRangeParams,
+          ad_types: tableMaterialType?.map((v) => Number(v)),
+          account_ids: tableBuyer.length ? tableBuyer : undefined,
+          channels: tableChannel.length ? tableChannel : undefined,
+          page: tablePagination.page,
+          limit: tablePagination.limit,
+        }),
+      });
+      if (res?.code === 0 && res?.data) {
+        const rawList = Array.isArray(res.data) ? res.data : res.data?.data || [];
+        const list = rawList.map((item: TableRow, index: number) => ({
+          ...item,
+          key: item.key || item.date || String(index + 1),
+        }));
+        return {
+          list,
+          page: res.page ?? tablePagination.page,
+          limit: res.limit ?? tablePagination.limit,
+          total: res.total ?? rawList.length,
+        };
+      }
+      return { list: [], page: tablePagination.page, limit: tablePagination.limit, total: 0 };
+    },
+    enabled: tableAppliedFilterKey === tableFilterKey,
+  });
 
   useEffect(() => {
-    const rangeParams = normalizeRange(retentionRange);
-    const filterKey = JSON.stringify({
-      ...rangeParams,
-      ad_types: retentionMaterialType || [],
-      account_ids: retentionBuyer,
-      channels: retentionChannel,
-    });
-    if (retentionFilterKeyRef.current !== filterKey && retentionPagination.page !== 1) {
-      setRetentionData([]);
-      setRetentionPagination((prev) => ({ ...prev, page: 1, total: 0 }));
-      return;
-    }
-    retentionFilterKeyRef.current = filterKey;
-    const fetchRetentionData = async () => {
-      const requestId = ++retentionRequestIdRef.current;
-      setRetentionLoading(true);
-      try {
-        const res = await fetchPost({
-          path: RETENTION_PATH,
-          body: JSON.stringify({
-            ...rangeParams,
-            ad_types: retentionMaterialType?.map((v) => Number(v)),
-            account_ids: retentionBuyer.length ? retentionBuyer : undefined,
-            channels: retentionChannel.length ? retentionChannel : undefined,
-            page: retentionPagination.page,
-            limit: retentionPagination.limit,
-          }),
-        });
-        if (requestId !== retentionRequestIdRef.current) return;
-        if (res?.code === 0 && res?.data) {
-          const rawList = Array.isArray(res.data) ? res.data : res.data?.data || [];
-          const mapped = rawList.map((item: RetentionRow, index: number) => ({
-            ...item,
-            key: item.key || item.date || String(index + 1),
-          }));
-          const page = res.page ?? retentionPagination.page;
-          const limit = res.limit ?? retentionPagination.limit;
-          const total = res.total ?? rawList.length;
-          setRetentionData(mapped);
-          setRetentionPagination({
-            page,
-            limit,
-            total,
-          });
-        } else {
-          setRetentionData([]);
-          setRetentionPagination((prev) => ({ ...prev, total: 0 }));
-        }
-      } catch {
-        if (requestId !== retentionRequestIdRef.current) return;
-        setRetentionData([]);
-        setRetentionPagination((prev) => ({ ...prev, total: 0 }));
-      } finally {
-        if (requestId === retentionRequestIdRef.current) {
-          setRetentionLoading(false);
-        }
-      }
-    };
+    if (!overviewQuery.data) return;
+    setTableData(overviewQuery.data.list);
+    setTablePagination((prev) => ({
+      ...prev,
+      page: overviewQuery.data.page,
+      limit: overviewQuery.data.limit,
+      total: overviewQuery.data.total,
+    }));
+  }, [overviewQuery.data]);
 
-    fetchRetentionData();
-  }, [
-    fetchPost,
-    retentionRange,
-    retentionMaterialType,
-    retentionBuyer,
-    retentionChannel,
-    retentionPagination.page,
-    retentionPagination.limit,
-  ]);
+  const retentionQuery = useQuery<PagedData<RetentionRow>>({
+    queryKey: [
+      "meta-retention-roas",
+      retentionRangeParams,
+      retentionMaterialType || [],
+      retentionBuyer,
+      retentionChannel,
+      retentionPagination.page,
+      retentionPagination.limit,
+    ],
+    queryFn: async () => {
+      const res = await fetchPost({
+        path: RETENTION_PATH,
+        body: JSON.stringify({
+          ...retentionRangeParams,
+          ad_types: retentionMaterialType?.map((v) => Number(v)),
+          account_ids: retentionBuyer.length ? retentionBuyer : undefined,
+          channels: retentionChannel.length ? retentionChannel : undefined,
+          page: retentionPagination.page,
+          limit: retentionPagination.limit,
+        }),
+      });
+      if (res?.code === 0 && res?.data) {
+        const rawList = Array.isArray(res.data) ? res.data : res.data?.data || [];
+        const list = rawList.map((item: RetentionRow, index: number) => ({
+          ...item,
+          key: item.key || item.date || String(index + 1),
+        }));
+        return {
+          list,
+          page: res.page ?? retentionPagination.page,
+          limit: res.limit ?? retentionPagination.limit,
+          total: res.total ?? rawList.length,
+        };
+      }
+      return { list: [], page: retentionPagination.page, limit: retentionPagination.limit, total: 0 };
+    },
+    enabled: !hideRestrictedSections && retentionAppliedFilterKey === retentionFilterKey,
+  });
+
+  useEffect(() => {
+    if (!retentionQuery.data) return;
+    setRetentionData(retentionQuery.data.list);
+    setRetentionPagination((prev) => ({
+      ...prev,
+      page: retentionQuery.data.page,
+      limit: retentionQuery.data.limit,
+      total: retentionQuery.data.total,
+    }));
+  }, [retentionQuery.data]);
+
+  const tableLoading = overviewQuery.isLoading || overviewQuery.isFetching;
+  const retentionLoading = retentionQuery.isLoading || retentionQuery.isFetching;
 
   return (
     <div style={{ padding: 16, background: "#f5f7fb", minHeight: "100vh" }}>

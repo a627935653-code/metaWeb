@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import ReactECharts from "echarts-for-react";
 import { DatePicker, Space, Radio } from "antd";
 import type { RadioChangeEvent } from "antd";
@@ -33,7 +34,6 @@ interface ChartData {
 
 const TransactionChart = () => {
   const { fetchPost } = useFetch();
-  const [loading, setLoading] = useState(false);
   // 2. State 默认值已更改 (假设默认是月视图)
   const [viewMode, setViewMode] = useAtom(viewModeAtom);
   const [activeDate, setActiveDate] = useAtom(activeDateAtom);
@@ -102,79 +102,33 @@ const TransactionChart = () => {
     return { xAxis, series };
   };
 
-  const fetchDataAndUpdateChart = useCallback(
-    async (isPolling = false) => {
-      // 只有在非轮询调用时（即用户手动操作），才显示加载动画
-      if (!isPolling) {
-        setLoading(true);
-      }
+  const time = (() => {
+    switch (viewMode) {
+      case "1":
+        return activeDate.format("YYYY");
+      case "2":
+        return activeDate.format("YYYY-MM");
+      case "3":
+        return activeDate.format("YYYY-MM-DD");
+    }
+  })();
 
-      const type = viewMode;
-      let time: string;
-
-      switch (viewMode) {
-        case "1":
-          time = activeDate.format("YYYY");
-          break;
-        case "2":
-          time = activeDate.format("YYYY-MM");
-          break;
-        case "3":
-          time = activeDate.format("YYYY-MM-DD");
-          break;
-      }
-
+  const chartQuery = useQuery<ApiChartData | null>({
+    queryKey: ["plant-transaction-chart", viewMode, time],
+    queryFn: async () => {
       try {
         const res = await fetchPost({
           path: "/index/statistical-Trading-volume-charts",
-          body: JSON.stringify({ type, time }),
+          body: JSON.stringify({ type: viewMode, time }),
         });
-        if (res && res.code === 0 && res.data) {
-          const chartData = transformApiData(res.data, {
-            mode: viewMode,
-            date: activeDate,
-          });
-          const newOption = getChartOption(chartData);
-          setChartOptions(newOption);
-        } else {
-          setChartOptions(
-            getChartOption({
-              xAxis: [],
-              series: { topUp:[],success: [], withdrawal: [], conversion: []},
-            })
-          );
-        }
+        return res && res.code === 0 && res.data ? res.data : null;
       } catch (error) {
         console.error("Failed to fetch chart data:", error);
-      } finally {
-        setLoading(false);
+        return null;
       }
     },
-    [viewMode, activeDate]
-  ); // 依赖项：当筛选条件变化时，这个函数会重新创建
+  });
 
-  // 2. 使用一个 useEffect 来统一处理数据获取和轮询
-  useEffect(() => {
-    // (A) 立即执行一次获取数据，以响应用户的筛选操作
-    fetchDataAndUpdateChart(false);
-
-    // (B) 设置一个每 5 秒执行一次的定时器
-    // const intervalId = setInterval(() => {
-    //   console.log("Polling for new data...");
-    //   fetchDataAndUpdateChart(true); // 轮询调用，不显示 loading
-    // }, 10000); // 5000 毫秒 = 5 秒
-
-    // (C) !!! 关键的清理函数 !!!
-    // 这个函数会在以下两种情况时被自动调用：
-    // 1. 当组件卸载（用户离开页面）时
-    // 2. 当依赖项 [fetchDataAndUpdateChart] 变化，下一次 effect 运行之前
-    return () => {
-      console.log("Cleaning up interval.");
-      // clearInterval(intervalId); // 销毁定时器，停止轮询
-    };
-  }, [fetchDataAndUpdateChart]); // 依赖于获取数据的函数本身
-
-  // 事件处理函数 (保持不变)
   const onViewModeChange = (e: RadioChangeEvent) => {
     setViewMode(e.target.value as ViewMode);
     setActiveDate(dayjs());
@@ -273,6 +227,21 @@ const TransactionChart = () => {
       },
     ],
   });
+
+  useEffect(() => {
+    const chartData = chartQuery.data
+      ? transformApiData(chartQuery.data, {
+          mode: viewMode,
+          date: activeDate,
+        })
+      : {
+          xAxis: [],
+          series: { topUp: [], success: [], withdrawal: [], conversion: [] },
+        };
+    setChartOptions(getChartOption(chartData));
+  }, [chartQuery.data, viewMode, activeDate]);
+
+  const loading = chartQuery.isLoading;
 
   return (
     <div

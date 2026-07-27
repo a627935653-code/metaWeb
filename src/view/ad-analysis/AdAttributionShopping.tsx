@@ -1,7 +1,9 @@
 import { Button, DatePicker, Input, Modal, Select, Space, Table, Typography } from "antd";
 import type { ColumnsType } from "antd/es/table";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import useFetch from "@/hooks/useFetch";
+import { useMetaPersonnelOptions, useMetaPlatformOptions } from "@/hooks/useMetaOptions";
 
 type AdAttributionShoppingRow = {
   key: string;
@@ -56,6 +58,21 @@ type AdAttributionShoppingDailyRow = {
   ctr: number;
 };
 
+type PayOrderRow = {
+  key: string;
+  user: string;
+  click_time: string;
+  pay_amount: number;
+  pay_time: string;
+};
+
+type PagedData<T> = {
+  list: T[];
+  page: number;
+  limit: number;
+  total: number;
+};
+
 const toNumber = (value: unknown) => {
   const num = Number(value);
   return Number.isFinite(num) ? num : null;
@@ -84,16 +101,13 @@ const ROAS_PAY_SUM_PATH = "/meta/roaspaysum";
 const PAY_ORDERS_DETAIL_PATH = "/meta/payOrdersList";
 
 function AdAttributionShopping() {
-  const { fetchPost, fetchGET } = useFetch();
+  const { fetchPost } = useFetch();
   const { RangePicker } = DatePicker;
   const { Title } = Typography;
   const [dailyRange, setDailyRange] = useState<any>(null);
   const [dailyBuyer, setDailyBuyer] = useState<string[]>([]);
   const [dailyChannel, setDailyChannel] = useState<string[]>([]);
-  const [personnelOptions, setPersonnelOptions] = useState<Array<{ label: string; value: string }>>([]);
-  const [platformOptions, setPlatformOptions] = useState<Array<{ label: string; value: string }>>([]);
   const [dailyTableData, setDailyTableData] = useState<AdAttributionShoppingDailyRow[]>([]);
-  const [dailyTableLoading, setDailyTableLoading] = useState(false);
   const [dailyPagination, setDailyPagination] = useState({ page: 1, limit: 10, total: 0 });
   const [range, setRange] = useState<any>(null);
   const [adName, setAdName] = useState<string>("");
@@ -101,20 +115,11 @@ function AdAttributionShopping() {
   const [buyer, setBuyer] = useState<string[]>([]);
   const [channel, setChannel] = useState<string[]>([]);
   const [tableData, setTableData] = useState<AdAttributionShoppingRow[]>([]);
-  const [tableLoading, setTableLoading] = useState(false);
   const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0 });
   const [payOrdersModalOpen, setPayOrdersModalOpen] = useState(false);
-  const [payOrdersLoading, setPayOrdersLoading] = useState(false);
-  const [payOrdersData, setPayOrdersData] = useState<
-    Array<{ key: string; user: string; click_time: string; pay_amount: number; pay_time: string }>
-  >([]);
+  const [payOrdersData, setPayOrdersData] = useState<PayOrderRow[]>([]);
   const [payOrdersPagination, setPayOrdersPagination] = useState({ page: 1, limit: 20, total: 0 });
   const [payOrdersContext, setPayOrdersContext] = useState<{ ad_id: string; date: string } | null>(null);
-  const dailyFilterKeyRef = useRef<string>("");
-  const detailFilterKeyRef = useRef<string>("");
-  const dailyRequestIdRef = useRef(0);
-  const detailRequestIdRef = useRef(0);
-  const payOrdersRequestIdRef = useRef(0);
 
   const openPayOrdersModal = useCallback((record: AdAttributionShoppingRow) => {
     setPayOrdersContext({ ad_id: record.ad_id, date: record.date });
@@ -136,42 +141,8 @@ function AdAttributionShopping() {
     return Array.from(new Set(normalized)).join(",");
   }, [dailyChannel, channel]);
 
-  useEffect(() => {
-    let cancelled = false;
-    const fetchPersonnel = async () => {
-      const path = personnelPlatformParam
-        ? `/meta/personnel?platform=${encodeURIComponent(personnelPlatformParam)}`
-        : "/meta/personnel";
-      const res = await fetchGET({ path });
-      if (cancelled) return;
-      if (res?.code === 0 && Array.isArray(res?.data)) {
-        setPersonnelOptions(res.data);
-      } else {
-        setPersonnelOptions([]);
-      }
-    };
-    fetchPersonnel();
-    return () => {
-      cancelled = true;
-    };
-  }, [fetchGET, personnelPlatformParam]);
-
-  useEffect(() => {
-    let cancelled = false;
-    const fetchPlatform = async () => {
-      const res = await fetchGET({ path: "/meta/platform" });
-      if (cancelled) return;
-      if (res?.code === 0 && Array.isArray(res?.data)) {
-        setPlatformOptions(res.data);
-      } else {
-        setPlatformOptions([]);
-      }
-    };
-    fetchPlatform();
-    return () => {
-      cancelled = true;
-    };
-  }, [fetchGET]);
+  const personnelOptions = useMetaPersonnelOptions(personnelPlatformParam).data || [];
+  const platformOptions = useMetaPlatformOptions().data || [];
 
   const dailyColumns: ColumnsType<AdAttributionShoppingDailyRow> = [
     { title: "日期", dataIndex: "date", key: "date", width: 120, fixed: "left" },
@@ -351,131 +322,144 @@ function AdAttributionShopping() {
     URL.revokeObjectURL(url);
   }, [tableData]);
 
-  useEffect(() => {
-    const rangeParams = normalizeRange(dailyRange);
-    const filterKey = JSON.stringify({
-      ...rangeParams,
-      account_ids: dailyBuyer,
-      channels: dailyChannel,
-    });
-    if (dailyFilterKeyRef.current !== filterKey && dailyPagination.page !== 1) {
-      setDailyTableData([]);
-      setDailyPagination((prev) => ({ ...prev, page: 1, total: 0 }));
-      return;
-    }
-    dailyFilterKeyRef.current = filterKey;
-    const fetchDailyTableData = async () => {
-      const requestId = ++dailyRequestIdRef.current;
-      setDailyTableLoading(true);
-      try {
-        const res = await fetchPost({
-          path: ROAS_PAY_SUM_PATH,
-          body: JSON.stringify({
-            ...rangeParams,
-            account_ids: dailyBuyer.length ? dailyBuyer : undefined,
-            channels: dailyChannel.length ? dailyChannel : undefined,
-            page: dailyPagination.page,
-            limit: dailyPagination.limit,
-          }),
-        });
-        if (requestId !== dailyRequestIdRef.current) return;
-        if (res?.code === 0 && res?.data) {
-          const rawList = Array.isArray(res.data) ? res.data : res.data?.data || [];
-          const mapped = rawList.map((item: AdAttributionShoppingDailyRow, index: number) => ({
-            ...item,
-            key: item.key || item.date || String(index + 1),
-          }));
-          const page = res.page ?? dailyPagination.page;
-          const limit = res.limit ?? dailyPagination.limit;
-          const total = res.total ?? rawList.length;
-          setDailyTableData(mapped);
-          setDailyPagination({ page, limit, total });
-        } else {
-          setDailyTableData([]);
-          setDailyPagination((prev) => ({ ...prev, total: 0 }));
-        }
-      } catch {
-        if (requestId !== dailyRequestIdRef.current) return;
-        setDailyTableData([]);
-        setDailyPagination((prev) => ({ ...prev, total: 0 }));
-      } finally {
-        if (requestId === dailyRequestIdRef.current) {
-          setDailyTableLoading(false);
-        }
-      }
-    };
-
-    fetchDailyTableData();
-  }, [fetchPost, dailyRange, dailyBuyer, dailyChannel, dailyPagination.page, dailyPagination.limit]);
+  const dailyRangeParams = useMemo(() => normalizeRange(dailyRange), [dailyRange]);
+  const detailRangeParams = useMemo(() => normalizeRange(range), [range]);
+  const dailyFilterKey = useMemo(
+    () =>
+      JSON.stringify({
+        ...dailyRangeParams,
+        account_ids: dailyBuyer,
+        channels: dailyChannel,
+      }),
+    [dailyRangeParams, dailyBuyer, dailyChannel]
+  );
+  const detailFilterKey = useMemo(
+    () =>
+      JSON.stringify({
+        ...detailRangeParams,
+        ad_name: adName || "",
+        ad_type: adType || "",
+        account_ids: buyer,
+        channels: channel,
+      }),
+    [detailRangeParams, adName, adType, buyer, channel]
+  );
+  const [dailyAppliedFilterKey, setDailyAppliedFilterKey] = useState(dailyFilterKey);
+  const [detailAppliedFilterKey, setDetailAppliedFilterKey] = useState(detailFilterKey);
 
   useEffect(() => {
-    const rangeParams = normalizeRange(range);
-    const filterKey = JSON.stringify({
-      ...rangeParams,
-      ad_name: adName || "",
-      ad_type: adType || "",
-      account_ids: buyer,
-      channels: channel,
-    });
-    if (detailFilterKeyRef.current !== filterKey && pagination.page !== 1) {
-      setTableData([]);
-      setPagination((prev) => ({ ...prev, page: 1, total: 0 }));
-      return;
-    }
-    detailFilterKeyRef.current = filterKey;
-    const fetchTableData = async () => {
-      const requestId = ++detailRequestIdRef.current;
-      setTableLoading(true);
-      try {
-        const res = await fetchPost({
-          path: ROAS_PAY_PATH,
-          body: JSON.stringify({
-            ...rangeParams,
-            ad_name: adName || undefined,
-            ad_types: adType ? [Number(adType)] : undefined,
-            account_ids: buyer.length ? buyer : undefined,
-            channels: channel.length ? channel : undefined,
-            page: pagination.page,
-            limit: pagination.limit,
-          }),
-        });
-        if (requestId !== detailRequestIdRef.current) return;
-        if (res?.code === 0 && res?.data) {
-          const rawList = Array.isArray(res.data) ? res.data : res.data?.data || [];
-          const mapped = rawList.map((item: AdAttributionShoppingRow, index: number) => ({
-            ...item,
-            key: item.key || (item.ad_id && item.date ? `${item.ad_id}_${item.date}` : undefined) || String(index + 1),
-          }));
-          const page = res.page ?? pagination.page;
-          const limit = res.limit ?? pagination.limit;
-          const total = res.total ?? rawList.length;
-          setTableData(mapped);
-          setPagination({ page, limit, total });
-        } else {
-          setTableData([]);
-          setPagination((prev) => ({ ...prev, total: 0 }));
-        }
-      } catch {
-        if (requestId !== detailRequestIdRef.current) return;
-        setTableData([]);
-        setPagination((prev) => ({ ...prev, total: 0 }));
-      } finally {
-        if (requestId === detailRequestIdRef.current) {
-          setTableLoading(false);
-        }
+    setDailyAppliedFilterKey(dailyFilterKey);
+    setDailyPagination((prev) => (prev.page === 1 ? prev : { ...prev, page: 1, total: 0 }));
+  }, [dailyFilterKey]);
+
+  useEffect(() => {
+    setDetailAppliedFilterKey(detailFilterKey);
+    setPagination((prev) => (prev.page === 1 ? prev : { ...prev, page: 1, total: 0 }));
+  }, [detailFilterKey]);
+
+  const dailyTableQuery = useQuery<PagedData<AdAttributionShoppingDailyRow>>({
+    queryKey: [
+      "meta-roaspaysum",
+      dailyRangeParams,
+      dailyBuyer,
+      dailyChannel,
+      dailyPagination.page,
+      dailyPagination.limit,
+    ],
+    queryFn: async () => {
+      const res = await fetchPost({
+        path: ROAS_PAY_SUM_PATH,
+        body: JSON.stringify({
+          ...dailyRangeParams,
+          account_ids: dailyBuyer.length ? dailyBuyer : undefined,
+          channels: dailyChannel.length ? dailyChannel : undefined,
+          page: dailyPagination.page,
+          limit: dailyPagination.limit,
+        }),
+      });
+      if (res?.code === 0 && res?.data) {
+        const rawList = Array.isArray(res.data) ? res.data : res.data?.data || [];
+        const list = rawList.map((item: AdAttributionShoppingDailyRow, index: number) => ({
+          ...item,
+          key: item.key || item.date || String(index + 1),
+        }));
+        return {
+          list,
+          page: res.page ?? dailyPagination.page,
+          limit: res.limit ?? dailyPagination.limit,
+          total: res.total ?? rawList.length,
+        };
       }
-    };
+      return { list: [], page: dailyPagination.page, limit: dailyPagination.limit, total: 0 };
+    },
+    enabled: dailyAppliedFilterKey === dailyFilterKey,
+  });
 
-    fetchTableData();
-  }, [fetchPost, range, adName, adType, buyer, channel, pagination.page, pagination.limit]);
+  useEffect(() => {
+    if (!dailyTableQuery.data) return;
+    setDailyTableData(dailyTableQuery.data.list);
+    setDailyPagination((prev) => ({
+      ...prev,
+      page: dailyTableQuery.data.page,
+      limit: dailyTableQuery.data.limit,
+      total: dailyTableQuery.data.total,
+    }));
+  }, [dailyTableQuery.data]);
 
-  const payOrdersColumns: ColumnsType<{
-    key: string;
-    user: string;
-    click_time: string;
-    pay_amount: number;
-    pay_time: string;
-  }> = useMemo(
+  const detailTableQuery = useQuery<PagedData<AdAttributionShoppingRow>>({
+    queryKey: [
+      "meta-roaspay",
+      detailRangeParams,
+      adName || "",
+      adType || "",
+      buyer,
+      channel,
+      pagination.page,
+      pagination.limit,
+    ],
+    queryFn: async () => {
+      const res = await fetchPost({
+        path: ROAS_PAY_PATH,
+        body: JSON.stringify({
+          ...detailRangeParams,
+          ad_name: adName || undefined,
+          ad_types: adType ? [Number(adType)] : undefined,
+          account_ids: buyer.length ? buyer : undefined,
+          channels: channel.length ? channel : undefined,
+          page: pagination.page,
+          limit: pagination.limit,
+        }),
+      });
+      if (res?.code === 0 && res?.data) {
+        const rawList = Array.isArray(res.data) ? res.data : res.data?.data || [];
+        const list = rawList.map((item: AdAttributionShoppingRow, index: number) => ({
+          ...item,
+          key: item.key || (item.ad_id && item.date ? `${item.ad_id}_${item.date}` : undefined) || String(index + 1),
+        }));
+        return {
+          list,
+          page: res.page ?? pagination.page,
+          limit: res.limit ?? pagination.limit,
+          total: res.total ?? rawList.length,
+        };
+      }
+      return { list: [], page: pagination.page, limit: pagination.limit, total: 0 };
+    },
+    enabled: detailAppliedFilterKey === detailFilterKey,
+  });
+
+  useEffect(() => {
+    if (!detailTableQuery.data) return;
+    setTableData(detailTableQuery.data.list);
+    setPagination((prev) => ({
+      ...prev,
+      page: detailTableQuery.data.page,
+      limit: detailTableQuery.data.limit,
+      total: detailTableQuery.data.total,
+    }));
+  }, [detailTableQuery.data]);
+
+  const payOrdersColumns: ColumnsType<PayOrderRow> = useMemo(
     () => [
       { title: "用户", dataIndex: "user", key: "user", width: 180 },
       { title: "点击广告时间", dataIndex: "click_time", key: "click_time", width: 180 },
@@ -485,61 +469,62 @@ function AdAttributionShopping() {
     []
   );
 
-  useEffect(() => {
-    if (!payOrdersModalOpen || !payOrdersContext) return;
-    const fetchPayOrders = async () => {
-      const requestId = ++payOrdersRequestIdRef.current;
-      setPayOrdersLoading(true);
-      try {
-        const res = await fetchPost({
-          path: PAY_ORDERS_DETAIL_PATH,
-          body: JSON.stringify({
-            ad_id: payOrdersContext.ad_id,
-            date: payOrdersContext.date,
-            page: payOrdersPagination.page,
-            limit: payOrdersPagination.limit,
-          }),
-        });
-        if (requestId !== payOrdersRequestIdRef.current) return;
-        if (res?.code === 0 && res?.data) {
-          const rawList = Array.isArray(res.data) ? res.data : res.data?.list || res.data?.data || [];
-          const mapped = rawList.map((item: any, index: number) => ({
-            key:
-              item?.key ||
-              item?.id ||
-              `${payOrdersContext.ad_id}_${payOrdersContext.date}_${index + 1}`,
-            user: item?.user ?? item?.uid ?? item?.user_id ?? "-",
-            click_time: item?.click_time ?? item?.click_ad_time ?? item?.clickAt ?? "-",
-            pay_amount: toNumber(item?.pay_amount ?? item?.amount) || 0,
-            pay_time: item?.pay_time ?? item?.payAt ?? "-",
-          }));
-          const page = res.page ?? payOrdersPagination.page;
-          const limit = res.limit ?? payOrdersPagination.limit;
-          const total = res.total ?? res.data?.total ?? rawList.length;
-          setPayOrdersData(mapped);
-          setPayOrdersPagination({ page, limit, total });
-        } else {
-          setPayOrdersData([]);
-          setPayOrdersPagination((prev) => ({ ...prev, total: 0 }));
-        }
-      } catch {
-        if (requestId !== payOrdersRequestIdRef.current) return;
-        setPayOrdersData([]);
-        setPayOrdersPagination((prev) => ({ ...prev, total: 0 }));
-      } finally {
-        if (requestId === payOrdersRequestIdRef.current) {
-          setPayOrdersLoading(false);
-        }
+  const payOrdersQuery = useQuery<PagedData<PayOrderRow>>({
+    queryKey: [
+      "meta-pay-orders-list",
+      payOrdersContext?.ad_id || "",
+      payOrdersContext?.date || "",
+      payOrdersPagination.page,
+      payOrdersPagination.limit,
+    ],
+    queryFn: async () => {
+      const res = await fetchPost({
+        path: PAY_ORDERS_DETAIL_PATH,
+        body: JSON.stringify({
+          ad_id: payOrdersContext?.ad_id,
+          date: payOrdersContext?.date,
+          page: payOrdersPagination.page,
+          limit: payOrdersPagination.limit,
+        }),
+      });
+      if (res?.code === 0 && res?.data && payOrdersContext) {
+        const rawList = Array.isArray(res.data) ? res.data : res.data?.list || res.data?.data || [];
+        const list = rawList.map((item: any, index: number) => ({
+          key:
+            item?.key ||
+            item?.id ||
+            `${payOrdersContext.ad_id}_${payOrdersContext.date}_${index + 1}`,
+          user: item?.user ?? item?.uid ?? item?.user_id ?? "-",
+          click_time: item?.click_time ?? item?.click_ad_time ?? item?.clickAt ?? "-",
+          pay_amount: toNumber(item?.pay_amount ?? item?.amount) || 0,
+          pay_time: item?.pay_time ?? item?.payAt ?? "-",
+        }));
+        return {
+          list,
+          page: res.page ?? payOrdersPagination.page,
+          limit: res.limit ?? payOrdersPagination.limit,
+          total: res.total ?? res.data?.total ?? rawList.length,
+        };
       }
-    };
-    fetchPayOrders();
-  }, [
-    fetchPost,
-    payOrdersModalOpen,
-    payOrdersContext,
-    payOrdersPagination.page,
-    payOrdersPagination.limit,
-  ]);
+      return { list: [], page: payOrdersPagination.page, limit: payOrdersPagination.limit, total: 0 };
+    },
+    enabled: payOrdersModalOpen && !!payOrdersContext,
+  });
+
+  useEffect(() => {
+    if (!payOrdersQuery.data) return;
+    setPayOrdersData(payOrdersQuery.data.list);
+    setPayOrdersPagination((prev) => ({
+      ...prev,
+      page: payOrdersQuery.data.page,
+      limit: payOrdersQuery.data.limit,
+      total: payOrdersQuery.data.total,
+    }));
+  }, [payOrdersQuery.data]);
+
+  const dailyTableLoading = dailyTableQuery.isLoading || dailyTableQuery.isFetching;
+  const tableLoading = detailTableQuery.isLoading || detailTableQuery.isFetching;
+  const payOrdersLoading = payOrdersQuery.isLoading || payOrdersQuery.isFetching;
 
   return (
     <div style={{ padding: 16 }}>

@@ -4,7 +4,16 @@ import PageAtomCom from "@/components/PageAtomCom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import MessageProvider from "./MessageProvider";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000,
+      gcTime: 30 * 60 * 1000,
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+    },
+  },
+});
 
 export default function Root() {
   return (
