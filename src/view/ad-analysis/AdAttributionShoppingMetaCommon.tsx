@@ -4,6 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import useFetch from "@/hooks/useFetch";
 import { useMetaPersonnelOptions, useMetaPlatformOptions } from "@/hooks/useMetaOptions";
+import { userInfoAtom } from "@/store/main";
+import { useAtomValue } from "jotai";
 
 type AdAttributionShoppingRow = {
   key: string;
@@ -136,9 +138,25 @@ const ROAS_PAY_SUM_PATH = "/meta/roaspaysumContrastMetaCommon";
 const PAY_ORDERS_DETAIL_PATH = "/meta/payOrdersListMetaCommon";
 const NEW_PAY_USERS_DETAIL_PATH = "/meta/newPayUserListMetaCommon";
 const REGISTER_USERS_DETAIL_PATH = "/meta/registerUserListMetaCommon";
+const ADMIN_ONLY_ROAS_COLUMNS = new Set([
+  "roas",
+  "d0Roas",
+  "d3Roas",
+  "d7Roas",
+  "d14Roas",
+]);
+const ROAS_EXPORT_LABEL_TO_KEY: Record<string, string> = {
+  ROAS: "roas",
+  D0ROAS: "d0Roas",
+  D3ROAS: "d3Roas",
+  D7ROAS: "d7Roas",
+  D14ROAS: "d14Roas",
+};
 
 function AdAttributionShoppingMetaCommon() {
   const { fetchPost } = useFetch();
+  const userInfo = useAtomValue(userInfoAtom);
+  const isAdmin = Number((userInfo as any)?.user?.is_admin) === 1;
   const { RangePicker } = DatePicker;
   const { Title } = Typography;
   const [dailyRange, setDailyRange] = useState<any>(null);
@@ -243,7 +261,11 @@ function AdAttributionShoppingMetaCommon() {
     { title: "D3ROAS", dataIndex: "d3Roas", key: "d3Roas", width: 100, render: (v: number) => pct(v) },
     { title: "D7ROAS", dataIndex: "d7Roas", key: "d7Roas", width: 100, render: (v: number) => pct(v) },
     { title: "D14ROAS", dataIndex: "d14Roas", key: "d14Roas", width: 110, render: (v: number) => pct(v) },
-  ];
+  ].filter(
+    (column) =>
+      isAdmin ||
+      !ADMIN_ONLY_ROAS_COLUMNS.has(String((column as any).dataIndex))
+  );
 
   const detailColumns: ColumnsType<AdAttributionShoppingRow> = [
     { title: "广告名称", dataIndex: "ad_name", key: "ad_name", width: 160, fixed: "left" },
@@ -340,7 +362,11 @@ function AdAttributionShoppingMetaCommon() {
     { title: "D3ROAS", dataIndex: "d3Roas", key: "d3Roas", width: 100, render: (v: number) => pct(v) },
     { title: "D7ROAS", dataIndex: "d7Roas", key: "d7Roas", width: 100, render: (v: number) => pct(v) },
     { title: "D14ROAS", dataIndex: "d14Roas", key: "d14Roas", width: 110, render: (v: number) => pct(v) },
-  ];
+  ].filter(
+    (column) =>
+      isAdmin ||
+      !ADMIN_ONLY_ROAS_COLUMNS.has(String((column as any).dataIndex))
+  );
 
   const exportDailyCSV = useCallback(() => {
     const cols = [
@@ -364,7 +390,13 @@ function AdAttributionShoppingMetaCommon() {
       { label: "D3ROAS", value: (r: AdAttributionShoppingDailyRow) => pct(r.d3Roas) },
       { label: "D7ROAS", value: (r: AdAttributionShoppingDailyRow) => pct(r.d7Roas) },
       { label: "D14ROAS", value: (r: AdAttributionShoppingDailyRow) => pct(r.d14Roas) },
-    ];
+    ].filter(
+      (column) =>
+        isAdmin ||
+        !ADMIN_ONLY_ROAS_COLUMNS.has(
+          ROAS_EXPORT_LABEL_TO_KEY[String((column as any).label)] || ""
+        )
+    );
     const header = cols.map((c) => c.label).join(",");
     const body = dailyTableData
       .map((row) =>
@@ -388,7 +420,7 @@ function AdAttributionShoppingMetaCommon() {
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
-  }, [dailyTableData]);
+  }, [dailyTableData, isAdmin]);
 
   const exportCSV = useCallback(() => {
     const cols = [
@@ -414,7 +446,13 @@ function AdAttributionShoppingMetaCommon() {
       { label: "D3ROAS", value: (r: AdAttributionShoppingRow) => pct(r.d3Roas) },
       { label: "D7ROAS", value: (r: AdAttributionShoppingRow) => pct(r.d7Roas) },
       { label: "D14ROAS", value: (r: AdAttributionShoppingRow) => pct(r.d14Roas) },
-    ];
+    ].filter(
+      (column) =>
+        isAdmin ||
+        !ADMIN_ONLY_ROAS_COLUMNS.has(
+          ROAS_EXPORT_LABEL_TO_KEY[String((column as any).label)] || ""
+        )
+    );
     const header = cols.map((c) => c.label).join(",");
     const body = tableData
       .map((row) =>
@@ -438,7 +476,7 @@ function AdAttributionShoppingMetaCommon() {
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
-  }, [tableData]);
+  }, [tableData, isAdmin]);
 
   const dailyRangeParams = useMemo(() => normalizeRange(dailyRange), [dailyRange]);
   const detailRangeParams = useMemo(() => normalizeRange(range), [range]);

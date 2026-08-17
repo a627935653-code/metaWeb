@@ -1,12 +1,23 @@
 import { RouteList } from '@/constant/menu';
 import { userInfoAtom } from '@/store/main';
 import { useAtomValue } from 'jotai';
-import React, { useMemo } from 'react'
+import { useMemo } from 'react'
 
 export default function usePermissionsRouteList() {
     const userInfo = useAtomValue(userInfoAtom);
+    const userRouteList = useMemo(() => {
+      const isAdmin = Number((userInfo as any)?.user?.is_admin) === 1;
+
+      return RouteList.filter((item) => {
+        if (item.key === "DeploymentOverview") {
+          return isAdmin;
+        }
+        return true;
+      });
+    }, [userInfo]);
+
     return {
-    userRouteList: RouteList,
+    userRouteList,
   };
     // const userRouteList = useMemo(() => {
     //   const permissionsMenu = (userInfo as any)?.menu || [];

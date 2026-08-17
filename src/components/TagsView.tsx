@@ -5,13 +5,58 @@ import { useAtom } from "jotai";
 import { useNavigate, useLocation } from "react-router-dom";
 import { openTabsAtom, activeTabKeyAtom } from "@/store/tabs"; // 假设你的 store 路径
 import type { TabItem } from "@/store/tabs";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
+import usePermissionsRouteList from "@/hooks/usePermissionsRouteList";
 
 export function TagsView() {
   const [openTabs, setOpenTabs] = useAtom(openTabsAtom);
   const [activeKey, setActiveKey] = useAtom(activeTabKeyAtom);
   const navigate = useNavigate();
   const location = useLocation();
+  const { userRouteList } = usePermissionsRouteList();
+
+  const authorizedTabKeys = useMemo(() => {
+    const keys = new Set(["main"]);
+
+    userRouteList.forEach((item) => {
+      if (item.component) {
+        keys.add(item.key);
+      }
+
+      item.children?.forEach((child) => {
+        if (child.component) {
+          keys.add(child.key);
+        }
+      });
+    });
+
+    return keys;
+  }, [userRouteList]);
+
+  useEffect(() => {
+    const authorizedTabs = openTabs.filter((tab) =>
+      authorizedTabKeys.has(tab.key)
+    );
+
+    if (authorizedTabs.length !== openTabs.length) {
+      setOpenTabs(authorizedTabs);
+    }
+
+    if (!authorizedTabKeys.has(activeKey)) {
+      setActiveKey("main");
+      if (location.pathname !== "/") {
+        navigate("/");
+      }
+    }
+  }, [
+    activeKey,
+    authorizedTabKeys,
+    location.pathname,
+    navigate,
+    openTabs,
+    setActiveKey,
+    setOpenTabs,
+  ]);
 
   // 1. 切换标签页
   const onTabChange = (key: string) => {

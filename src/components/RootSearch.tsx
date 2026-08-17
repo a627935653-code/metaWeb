@@ -1,7 +1,7 @@
-import { RouteList } from "@/constant/menu";
 import { Input, List } from "antd";
 import { useMemo, useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import usePermissionsRouteList from "@/hooks/usePermissionsRouteList";
 
 // --- 性能优化 (第 1 点) ---
 // 将路由扁平化逻辑提取到组件外部。
@@ -51,8 +51,6 @@ function flattenRoutes(routes) {
 }
 
 // 在模块加载时只计算一次
-const searchableRoutes = flattenRoutes(RouteList);
-
 export function RootSearch() {
   const [searchTerm, setSearchTerm] = useState("");
   // --- UX 优化 (第 2 点) ---
@@ -60,6 +58,11 @@ export function RootSearch() {
   const [activeIndex, setActiveIndex] = useState(-1);
 
   const navigate = useNavigate();
+  const { userRouteList } = usePermissionsRouteList();
+  const searchableRoutes = useMemo(
+    () => flattenRoutes(userRouteList),
+    [userRouteList]
+  );
   // --- UX 优化 (第 3 点) ---
   // 创建一个 ref 来引用搜索组件的根 DOM 元素
   const searchContainerRef = useRef(null);
@@ -79,7 +82,7 @@ export function RootSearch() {
             route.parentLabel.toLowerCase().includes(lowerCaseSearchTerm))
       )
       .slice(0, 10); // 限制显示结果的数量
-  }, [searchTerm]);
+  }, [searchTerm, searchableRoutes]);
 
   // --- UX 优化 (第 3 点) ---
   // 处理点击外部关闭搜索结果

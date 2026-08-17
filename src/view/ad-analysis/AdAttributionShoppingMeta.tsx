@@ -5,6 +5,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import useFetch from "@/hooks/useFetch";
 import { useMetaPersonnelOptions, useMetaPlatformOptions } from "@/hooks/useMetaOptions";
+import { userInfoAtom } from "@/store/main";
+import { useAtomValue } from "jotai";
 
 type AdAttributionShoppingRow = {
   key: string;
@@ -168,9 +170,18 @@ const PAY_ORDERS_DETAIL_PATH = "/meta/payOrdersListMeta";
 const NEW_PAY_USERS_DETAIL_PATH = "/meta/newPayUserListMeta";
 const REGISTER_USERS_DETAIL_PATH = "/meta/registerUserListMeta";
 const REGISTER_YESTERDAY_RANK_PATH = "/meta/registerYesterdayRankMeta";
+const ADMIN_ONLY_DAILY_COLUMNS = new Set([
+  "register3dAmount",
+  "register7dAmount",
+  "register14dAmount",
+  "registerYesterdayAmount",
+]);
+const ADMIN_ONLY_DAILY_EXPORT_COLUMN_INDEXES = new Set([18, 19, 20, 27]);
 
 function AdAttributionShoppingMeta() {
   const { fetchPost } = useFetch();
+  const userInfo = useAtomValue(userInfoAtom);
+  const isAdmin = Number((userInfo as any)?.user?.is_admin) === 1;
   const { RangePicker } = DatePicker;
   const { Title } = Typography;
   const [dailyRange, setDailyRange] = useState<any>(null);
@@ -372,7 +383,11 @@ function AdAttributionShoppingMeta() {
     { title: "千次展示成本", dataIndex: "cpm", key: "cpm", width: 140, render: (v: number) => usd(v) },
     { title: "点击量", dataIndex: "clicks", key: "clicks", width: 100, render: (v: number) => formatNumber(v) },
     { title: "点击率", dataIndex: "ctr", key: "ctr", width: 100, render: (v: number) => pct(v) },
-  ];
+  ].filter(
+    (column) =>
+      isAdmin ||
+      !ADMIN_ONLY_DAILY_COLUMNS.has(String((column as any).dataIndex))
+  );
 
   const detailColumns: ColumnsType<AdAttributionShoppingRow> = [
     { title: "广告名称", dataIndex: "ad_name", key: "ad_name", width: 160, fixed: "left" },
@@ -498,7 +513,11 @@ function AdAttributionShoppingMeta() {
     { title: "千次展示成本", dataIndex: "cpm", key: "cpm", width: 140, render: (v: number) => usd(v) },
     { title: "点击量", dataIndex: "clicks", key: "clicks", width: 100, render: (v: number) => formatNumber(v) },
     { title: "点击率", dataIndex: "ctr", key: "ctr", width: 100, render: (v: number) => pct(v) },
-  ];
+  ].filter(
+    (column) =>
+      isAdmin ||
+      !ADMIN_ONLY_DAILY_COLUMNS.has(String((column as any).dataIndex))
+  );
 
   const exportDailyCSV = useCallback(() => {
     const cols = [
@@ -539,7 +558,12 @@ function AdAttributionShoppingMeta() {
       { label: "千次展示成本", value: (r: AdAttributionShoppingDailyRow) => usd(r.cpm) },
       { label: "点击量", value: (r: AdAttributionShoppingDailyRow) => formatNumber(r.clicks) },
       { label: "点击率", value: (r: AdAttributionShoppingDailyRow) => pct(r.ctr) },
-    ];
+    ].filter(
+      (column, index) =>
+        isAdmin ||
+        (!ADMIN_ONLY_DAILY_COLUMNS.has(String((column as any).dataIndex)) &&
+          !ADMIN_ONLY_DAILY_EXPORT_COLUMN_INDEXES.has(index))
+    );
     const header = cols.map((c) => c.label).join(",");
     const body = dailyTableData
       .map((row) =>
@@ -563,7 +587,7 @@ function AdAttributionShoppingMeta() {
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
-  }, [dailyTableData]);
+  }, [dailyTableData, isAdmin]);
 
   const exportCSV = useCallback(() => {
     const cols = [
