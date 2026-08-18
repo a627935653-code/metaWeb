@@ -1,4 +1,4 @@
-import { QuestionCircleOutlined } from "@ant-design/icons";
+import { QuestionCircleOutlined, ReloadOutlined } from "@ant-design/icons";
 import { Button, DatePicker, Input, Modal, Select, Space, Table, Tooltip, Typography } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useQuery } from "@tanstack/react-query";
@@ -94,10 +94,12 @@ type PayOrderRow = {
 
 type NewPayUserRow = {
   key: string;
+  user_id: string;
+  user_name: string;
   user: string;
   click_time: string;
   register_time: string;
-  first_pay_time: string;
+  total_pay_amount: number | null;
 };
 
 type RegisterUserRow = {
@@ -127,6 +129,15 @@ type PagedData<T> = {
 
 type RegisterUsersData = PagedData<RegisterUserRow> & {
   ipRepeat: string;
+};
+
+type NewPayUsersContext = {
+  source: "detail" | "daily";
+  date: string;
+  ad_id?: string;
+  account_ids?: string[];
+  channels?: string[];
+  player?: string;
 };
 
 const toNumber = (value: unknown) => {
@@ -168,6 +179,7 @@ const ROAS_PAY_PATH = "/meta/roaspayContrastMeta";
 const ROAS_PAY_SUM_PATH = "/meta/roaspaysumContrastMeta";
 const PAY_ORDERS_DETAIL_PATH = "/meta/payOrdersListMeta";
 const NEW_PAY_USERS_DETAIL_PATH = "/meta/newPayUserListMeta";
+const NEW_PAY_USERS_SUM_PATH = "/meta/newPayUserListSumMeta";
 const REGISTER_USERS_DETAIL_PATH = "/meta/registerUserListMeta";
 const REGISTER_YESTERDAY_RANK_PATH = "/meta/registerYesterdayRankMeta";
 const ADMIN_ONLY_DAILY_COLUMNS = new Set([
@@ -205,7 +217,7 @@ function AdAttributionShoppingMeta() {
   const [newPayUsersModalOpen, setNewPayUsersModalOpen] = useState(false);
   const [newPayUsersData, setNewPayUsersData] = useState<NewPayUserRow[]>([]);
   const [newPayUsersPagination, setNewPayUsersPagination] = useState({ page: 1, limit: 20, total: 0 });
-  const [newPayUsersContext, setNewPayUsersContext] = useState<{ ad_id: string; date: string } | null>(null);
+  const [newPayUsersContext, setNewPayUsersContext] = useState<NewPayUsersContext | null>(null);
   const [registerUsersModalOpen, setRegisterUsersModalOpen] = useState(false);
   const [registerUsersData, setRegisterUsersData] = useState<RegisterUserRow[]>([]);
   const [registerUsersIpRepeat, setRegisterUsersIpRepeat] = useState("");
@@ -236,11 +248,27 @@ function AdAttributionShoppingMeta() {
   }, []);
 
   const openNewPayUsersModal = useCallback((record: AdAttributionShoppingRow) => {
-    setNewPayUsersContext({ ad_id: record.ad_id, date: record.date });
+    setNewPayUsersContext({ source: "detail", ad_id: record.ad_id, date: record.date });
     setNewPayUsersData([]);
     setNewPayUsersPagination((prev) => ({ ...prev, page: 1, total: 0 }));
     setNewPayUsersModalOpen(true);
   }, []);
+
+  const openDailyNewPayUsersModal = useCallback(
+    (record: AdAttributionShoppingDailyRow) => {
+      setNewPayUsersContext({
+        source: "daily",
+        date: record.date,
+        account_ids: [...dailyBuyer],
+        channels: [...dailyChannel],
+        player: dailyPlayer,
+      });
+      setNewPayUsersData([]);
+      setNewPayUsersPagination((prev) => ({ ...prev, page: 1, total: 0 }));
+      setNewPayUsersModalOpen(true);
+    },
+    [dailyBuyer, dailyChannel, dailyPlayer]
+  );
 
   const closeNewPayUsersModal = useCallback(() => {
     setNewPayUsersModalOpen(false);
@@ -325,7 +353,25 @@ function AdAttributionShoppingMeta() {
     { title: "新用户D0 ROAS", dataIndex: "newUserD0Roas", key: "dailyNewUserD0Roas", width: 140, render: (v: number) => pct(v) },
     { title: "D0 ROAS", dataIndex: "sameDayD0Roas", key: "dailySameDayD0Roas", width: 120, render: (v: number) => pct(v) },
     // { title: "充值用户数", dataIndex: "payUsers", key: "payUsers", width: 120, render: (v: number) => formatNumber(v) },
-    { title: "新客充值用户数", dataIndex: "newPayUsers", key: "newPayUsers", width: 140, render: (v: number) => formatNumber(v) },
+    {
+      title: "新客充值用户数",
+      dataIndex: "newPayUsers",
+      key: "newPayUsers",
+      width: 140,
+      render: (v: number, record) => {
+        const num = toNumber(v) || 0;
+        if (num <= 0) return formatNumber(v);
+        return (
+          <Button
+            type="link"
+            style={{ padding: 0, height: "auto", lineHeight: 1.2, borderBottom: "2px solid #22c55e", borderRadius: 0 }}
+            onClick={() => openDailyNewPayUsersModal(record)}
+          >
+            {formatNumber(v)}
+          </Button>
+        );
+      },
+    },
     // { title: "充值笔数", dataIndex: "payOrders", key: "payOrders", width: 120, render: (v: number) => formatNumber(v) },
     { title: "新客充值笔数", dataIndex: "newPayOrders", key: "newPayOrders", width: 140, render: (v: number) => formatNumber(v) },
     // { title: "充值金额", dataIndex: "payAmount", key: "payAmount", width: 120, render: (v: number) => usd(v) },
@@ -801,10 +847,11 @@ function AdAttributionShoppingMeta() {
 
   const newPayUsersColumns: ColumnsType<NewPayUserRow> = useMemo(
     () => [
-      { title: "用户", dataIndex: "user", key: "user", width: 220 },
-      { title: "点击广告时间", dataIndex: "click_time", key: "click_time", width: 260 },
-      { title: "注册时间", dataIndex: "register_time", key: "register_time", width: 260 },
-      { title: "充值时间", dataIndex: "first_pay_time", key: "first_pay_time", width: 260 },
+      { title: "用户id", dataIndex: "user_id", key: "user_id", width: 160 },
+      { title: "用户名称", dataIndex: "user_name", key: "user_name", width: 220 },
+      { title: "点击广告时间", dataIndex: "click_time", key: "click_time", width: 260, render: (v: string) => <span style={{ whiteSpace: "pre-line" }}>{v}</span> },
+      { title: "注册时间", dataIndex: "register_time", key: "register_time", width: 260, render: (v: string) => <span style={{ whiteSpace: "pre-line" }}>{v}</span> },
+      { title: "总充值", dataIndex: "total_pay_amount", key: "total_pay_amount", width: 140, render: (v: number | null) => usd(v) },
     ],
     []
   );
@@ -895,33 +942,56 @@ function AdAttributionShoppingMeta() {
   const newPayUsersQuery = useQuery<PagedData<NewPayUserRow>>({
     queryKey: [
       "meta-new-pay-user-list-contrast-meta",
+      newPayUsersContext?.source || "",
       newPayUsersContext?.ad_id || "",
       newPayUsersContext?.date || "",
+      newPayUsersContext?.account_ids || [],
+      newPayUsersContext?.channels || [],
+      newPayUsersContext?.player || "",
       newPayUsersPagination.page,
       newPayUsersPagination.limit,
     ],
     queryFn: async () => {
+      const isDaily = newPayUsersContext?.source === "daily";
       const res = await fetchPost({
-        path: NEW_PAY_USERS_DETAIL_PATH,
-        body: JSON.stringify({
-          ad_id: newPayUsersContext?.ad_id,
-          date: newPayUsersContext?.date,
-          page: newPayUsersPagination.page,
-          limit: newPayUsersPagination.limit,
-        }),
+        path: isDaily ? NEW_PAY_USERS_SUM_PATH : NEW_PAY_USERS_DETAIL_PATH,
+        body: JSON.stringify(
+          isDaily
+            ? {
+                date: newPayUsersContext?.date,
+                account_ids: newPayUsersContext?.account_ids?.length ? newPayUsersContext.account_ids : undefined,
+                channels: newPayUsersContext?.channels?.length ? newPayUsersContext.channels : undefined,
+                player: newPayUsersContext?.player || undefined,
+                page: newPayUsersPagination.page,
+                limit: newPayUsersPagination.limit,
+              }
+            : {
+                ad_id: newPayUsersContext?.ad_id,
+                date: newPayUsersContext?.date,
+                page: newPayUsersPagination.page,
+                limit: newPayUsersPagination.limit,
+              }
+        ),
       });
       if (res?.code === 0 && res?.data && newPayUsersContext) {
         const rawList = Array.isArray(res.data) ? res.data : res.data?.list || res.data?.data || [];
-        const list = rawList.map((item: any, index: number) => ({
-          key:
-            item?.key ||
-            item?.id ||
-            `${newPayUsersContext.ad_id}_${newPayUsersContext.date}_${index + 1}`,
-          user: item?.user ?? "-",
-          click_time: item?.click_time ?? "-",
-          register_time: item?.register_time ?? "-",
-          first_pay_time: item?.first_pay_time ?? "-",
-        }));
+        const list = rawList.map((item: any, index: number) => {
+          const userText = String(item?.user ?? "");
+          const userId = item?.user_id ?? item?.uid ?? userText.match(/\(([^)]+)\)$/)?.[1] ?? "-";
+          const userName = (item?.user_name ?? item?.nick_name ?? item?.name ?? userText.replace(/\([^)]+\)$/, "")) || "-";
+          return {
+            key:
+              item?.key ||
+              item?.id ||
+              `${newPayUsersContext.source}_${newPayUsersContext.ad_id || "sum"}_${newPayUsersContext.date}_${index + 1}`,
+            user_id: String(userId),
+            user_name: String(userName),
+            user: item?.user ?? "-",
+            click_time: item?.click_time ?? "-",
+            register_time: item?.register_time ?? "-",
+            total_pay_amount: toNumber(item?.total_pay_amount ?? item?.totalPayAmount ?? item?.total_pay),
+          };
+        });
         return {
           list,
           page: res.page ?? newPayUsersPagination.page,
@@ -1075,29 +1145,34 @@ function AdAttributionShoppingMeta() {
 
       <div style={{ marginTop: 16 }}>
         <Title level={5} style={{ margin: 0 }}>当日归因-购物(日汇总)</Title>
-        <Space size={8} wrap style={{ marginTop: 16 }}>
-          <RangePicker value={dailyRange} onChange={setDailyRange} />
-          <Select
-            placeholder="渠道"
-            value={dailyChannel}
-            onChange={(v) => setDailyChannel(v || [])}
-            allowClear
-            mode="multiple"
-            style={{ width: 140 }}
-            options={platformOptions}
-          />
-          <Select
-            placeholder="投放专员"
-            value={dailyBuyer}
-            onChange={(v) => setDailyBuyer(v || [])}
-            allowClear
-            mode="multiple"
-            style={{ width: 140 }}
-            options={personnelOptions}
-          />
-          <Input placeholder="投手" value={dailyPlayer} onChange={(e) => setDailyPlayer(e.target.value)} style={{ width: 140 }} />
-          <Button onClick={exportDailyCSV}>导出</Button>
-        </Space>
+        <div style={{ marginTop: 16, display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, flexWrap: "wrap" }}>
+          <Space size={8} wrap>
+            <RangePicker value={dailyRange} onChange={setDailyRange} />
+            <Select
+              placeholder="渠道"
+              value={dailyChannel}
+              onChange={(v) => setDailyChannel(v || [])}
+              allowClear
+              mode="multiple"
+              style={{ width: 140 }}
+              options={platformOptions}
+            />
+            <Select
+              placeholder="投放专员"
+              value={dailyBuyer}
+              onChange={(v) => setDailyBuyer(v || [])}
+              allowClear
+              mode="multiple"
+              style={{ width: 140 }}
+              options={personnelOptions}
+            />
+            <Input placeholder="投手" value={dailyPlayer} onChange={(e) => setDailyPlayer(e.target.value)} style={{ width: 140 }} />
+            <Button onClick={exportDailyCSV}>导出</Button>
+          </Space>
+          <Button icon={<ReloadOutlined />} loading={dailyTableLoading} onClick={() => dailyTableQuery.refetch()}>
+            刷新
+          </Button>
+        </div>
 
         <div style={{ marginTop: 16 }}>
           <Table<AdAttributionShoppingDailyRow>
@@ -1122,43 +1197,48 @@ function AdAttributionShoppingMeta() {
 
       <div style={{ marginTop: 24 }}>
         <Title level={5} style={{ margin: 0 }}>当日归因-购物（广告明细）</Title>
-        <Space size={8} wrap style={{ marginTop: 16 }}>
-          <RangePicker value={range} onChange={setRange} />
-          <Input placeholder="广告名称" value={adName} onChange={(e) => setAdName(e.target.value)} style={{ width: 180 }} />
-          <Select
-            placeholder="广告类型"
-            value={adType}
-            onChange={setAdType}
-            allowClear
-            style={{ width: 140 }}
-            options={[
-              { value: "1", label: "图文" },
-              { value: "2", label: "视频" },
-              { value: "3", label: "轮播" },
-              { value: "4", label: "动态素材" },
-            ]}
-          />
-          <Select
-            placeholder="渠道"
-            value={channel}
-            onChange={(v) => setChannel(v || [])}
-            allowClear
-            mode="multiple"
-            style={{ width: 140 }}
-            options={platformOptions}
-          />
-          <Select
-            placeholder="投放专员"
-            value={buyer}
-            onChange={(v) => setBuyer(v || [])}
-            allowClear
-            mode="multiple"
-            style={{ width: 140 }}
-            options={personnelOptions}
-          />
-          <Input placeholder="投手" value={player} onChange={(e) => setPlayer(e.target.value)} style={{ width: 140 }} />
-          <Button onClick={exportCSV}>导出</Button>
-        </Space>
+        <div style={{ marginTop: 16, display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, flexWrap: "wrap" }}>
+          <Space size={8} wrap>
+            <RangePicker value={range} onChange={setRange} />
+            <Input placeholder="广告名称" value={adName} onChange={(e) => setAdName(e.target.value)} style={{ width: 180 }} />
+            <Select
+              placeholder="广告类型"
+              value={adType}
+              onChange={setAdType}
+              allowClear
+              style={{ width: 140 }}
+              options={[
+                { value: "1", label: "图文" },
+                { value: "2", label: "视频" },
+                { value: "3", label: "轮播" },
+                { value: "4", label: "动态素材" },
+              ]}
+            />
+            <Select
+              placeholder="渠道"
+              value={channel}
+              onChange={(v) => setChannel(v || [])}
+              allowClear
+              mode="multiple"
+              style={{ width: 140 }}
+              options={platformOptions}
+            />
+            <Select
+              placeholder="投放专员"
+              value={buyer}
+              onChange={(v) => setBuyer(v || [])}
+              allowClear
+              mode="multiple"
+              style={{ width: 140 }}
+              options={personnelOptions}
+            />
+            <Input placeholder="投手" value={player} onChange={(e) => setPlayer(e.target.value)} style={{ width: 140 }} />
+            <Button onClick={exportCSV}>导出</Button>
+          </Space>
+          <Button icon={<ReloadOutlined />} loading={tableLoading} onClick={() => detailTableQuery.refetch()}>
+            刷新
+          </Button>
+        </div>
 
         <div style={{ marginTop: 16 }}>
           <Table<AdAttributionShoppingRow>
@@ -1189,6 +1269,11 @@ function AdAttributionShoppingMeta() {
         width={1320}
         destroyOnClose
       >
+        <div style={{ marginBottom: 12, display: "flex", justifyContent: "flex-end" }}>
+          <Button icon={<ReloadOutlined />} loading={registerYesterdayLoading} onClick={() => registerYesterdayQuery.refetch()}>
+            刷新
+          </Button>
+        </div>
         <Table
           columns={registerYesterdayColumns}
           dataSource={registerYesterdayData}
@@ -1216,6 +1301,11 @@ function AdAttributionShoppingMeta() {
         width={900}
         destroyOnClose
       >
+        <div style={{ marginBottom: 12, display: "flex", justifyContent: "flex-end" }}>
+          <Button icon={<ReloadOutlined />} loading={payOrdersLoading} onClick={() => payOrdersQuery.refetch()}>
+            刷新
+          </Button>
+        </div>
         <Table
           columns={payOrdersColumns}
           dataSource={payOrdersData}
@@ -1236,13 +1326,18 @@ function AdAttributionShoppingMeta() {
       </Modal>
 
       <Modal
-        title={`新客充值用户明细（${newPayUsersContext?.ad_id || "-"} / ${newPayUsersContext?.date || "-"}）`}
+        title={`新客充值用户明细（${newPayUsersContext?.source === "daily" ? "日汇总" : newPayUsersContext?.ad_id || "-"} / ${newPayUsersContext?.date || "-"}）`}
         open={newPayUsersModalOpen}
         onCancel={closeNewPayUsersModal}
         footer={null}
         width={1240}
         destroyOnClose
       >
+        <div style={{ marginBottom: 12, display: "flex", justifyContent: "flex-end" }}>
+          <Button icon={<ReloadOutlined />} loading={newPayUsersLoading} onClick={() => newPayUsersQuery.refetch()}>
+            刷新
+          </Button>
+        </div>
         <Table
           columns={newPayUsersColumns}
           dataSource={newPayUsersData}
@@ -1294,6 +1389,11 @@ function AdAttributionShoppingMeta() {
         width={1160}
         destroyOnClose
       >
+        <div style={{ marginBottom: 12, display: "flex", justifyContent: "flex-end" }}>
+          <Button icon={<ReloadOutlined />} loading={registerUsersLoading} onClick={() => registerUsersQuery.refetch()}>
+            刷新
+          </Button>
+        </div>
         <Table
           columns={registerUsersColumns}
           dataSource={registerUsersData}

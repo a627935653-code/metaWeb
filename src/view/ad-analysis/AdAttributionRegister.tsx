@@ -1,4 +1,5 @@
 import { Button, DatePicker, Input, Select, Space, Table, Typography } from "antd";
+import { ReloadOutlined } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -399,28 +400,33 @@ function AdAttributionRegister() {
 
       <div style={{ marginTop: 16 }}>
         <Title level={5} style={{ margin: 0 }}>当日归因-注册(日汇总)</Title>
-        <Space size={8} wrap style={{ marginTop: 16 }}>
-          <RangePicker value={dailyRange} onChange={setDailyRange} />
-          <Select
-            placeholder="渠道"
-            value={dailyChannel}
-            onChange={(v) => setDailyChannel(v || [])}
-            allowClear
-            mode="multiple"
-            style={{ width: 140 }}
-            options={platformOptions}
-          />
-          <Select
-            placeholder="投放专员"
-            value={dailyBuyer}
-            onChange={(v) => setDailyBuyer(v || [])}
-            allowClear
-            mode="multiple"
-            style={{ width: 140 }}
-            options={personnelOptions}
-          />
-          <Button onClick={exportDailyCSV}>导出</Button>
-        </Space>
+        <div style={{ marginTop: 16, display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, flexWrap: "wrap" }}>
+          <Space size={8} wrap>
+            <RangePicker value={dailyRange} onChange={setDailyRange} />
+            <Select
+              placeholder="渠道"
+              value={dailyChannel}
+              onChange={(v) => setDailyChannel(v || [])}
+              allowClear
+              mode="multiple"
+              style={{ width: 140 }}
+              options={platformOptions}
+            />
+            <Select
+              placeholder="投放专员"
+              value={dailyBuyer}
+              onChange={(v) => setDailyBuyer(v || [])}
+              allowClear
+              mode="multiple"
+              style={{ width: 140 }}
+              options={personnelOptions}
+            />
+            <Button onClick={exportDailyCSV}>导出</Button>
+          </Space>
+          <Button icon={<ReloadOutlined />} loading={dailyTableLoading} onClick={() => dailyTableQuery.refetch()}>
+            刷新
+          </Button>
+        </div>
 
         <div style={{ marginTop: 16 }}>
           <Table<AdAttributionRegisterDailyRow>
@@ -445,42 +451,47 @@ function AdAttributionRegister() {
 
       <div style={{ marginTop: 24 }}>
         <Title level={5} style={{ margin: 0 }}>当日归因-注册（广告明细）</Title>
-        <Space size={8} wrap style={{ marginTop: 16 }}>
-          <RangePicker value={range} onChange={setRange} />
-          <Input placeholder="广告名称" value={adName} onChange={(e) => setAdName(e.target.value)} style={{ width: 180 }} />
-          <Select
-            placeholder="广告类型"
-            value={adType}
-            onChange={setAdType}
-            allowClear
-            style={{ width: 140 }}
-            options={[
-              { value: "1", label: "图文" },
-              { value: "2", label: "视频" },
-              { value: "3", label: "轮播" },
-              { value: "4", label: "动态素材" },
-            ]}
-          />
-          <Select
-            placeholder="渠道"
-            value={channel}
-            onChange={(v) => setChannel(v || [])}
-            allowClear
-            mode="multiple"
-            style={{ width: 140 }}
-            options={platformOptions}
-          />
-          <Select
-            placeholder="投放专员"
-            value={buyer}
-            onChange={(v) => setBuyer(v || [])}
-            allowClear
-            mode="multiple"
-            style={{ width: 140 }}
-            options={personnelOptions}
-          />
-          <Button onClick={exportCSV}>导出</Button>
-        </Space>
+        <div style={{ marginTop: 16, display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, flexWrap: "wrap" }}>
+          <Space size={8} wrap>
+            <RangePicker value={range} onChange={setRange} />
+            <Input placeholder="广告名称" value={adName} onChange={(e) => setAdName(e.target.value)} style={{ width: 180 }} />
+            <Select
+              placeholder="广告类型"
+              value={adType}
+              onChange={setAdType}
+              allowClear
+              style={{ width: 140 }}
+              options={[
+                { value: "1", label: "图文" },
+                { value: "2", label: "视频" },
+                { value: "3", label: "轮播" },
+                { value: "4", label: "动态素材" },
+              ]}
+            />
+            <Select
+              placeholder="渠道"
+              value={channel}
+              onChange={(v) => setChannel(v || [])}
+              allowClear
+              mode="multiple"
+              style={{ width: 140 }}
+              options={platformOptions}
+            />
+            <Select
+              placeholder="投放专员"
+              value={buyer}
+              onChange={(v) => setBuyer(v || [])}
+              allowClear
+              mode="multiple"
+              style={{ width: 140 }}
+              options={personnelOptions}
+            />
+            <Button onClick={exportCSV}>导出</Button>
+          </Space>
+          <Button icon={<ReloadOutlined />} loading={tableLoading} onClick={() => detailTableQuery.refetch()}>
+            刷新
+          </Button>
+        </div>
 
         <div style={{ marginTop: 16 }}>
           <Table<AdAttributionRegisterRow>
