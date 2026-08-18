@@ -201,7 +201,7 @@ function AdAttributionShoppingMeta() {
   const [dailyChannel, setDailyChannel] = useState<string[]>([]);
   const [dailyPlayer, setDailyPlayer] = useState("");
   const [dailyTableData, setDailyTableData] = useState<AdAttributionShoppingDailyRow[]>([]);
-  const [dailyPagination, setDailyPagination] = useState({ page: 1, limit: 10, total: 0 });
+  const [dailyPagination, setDailyPagination] = useState({ page: 1, limit: 5, total: 0 });
   const [range, setRange] = useState<any>(null);
   const [adName, setAdName] = useState<string>("");
   const [adType, setAdType] = useState<string | undefined>();
@@ -1186,7 +1186,7 @@ function AdAttributionShoppingMeta() {
               pageSize: dailyPagination.limit,
               total: dailyPagination.total || dailyTableData.length,
               showSizeChanger: true,
-              pageSizeOptions: ["10", "20", "50", "100"],
+              pageSizeOptions: ["5", "10", "20", "50", "100"],
               onChange: (page, pageSize) => {
                 setDailyPagination((prev) => ({ ...prev, page, limit: pageSize }));
               },
