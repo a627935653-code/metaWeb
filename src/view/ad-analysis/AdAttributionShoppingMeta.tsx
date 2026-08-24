@@ -96,6 +96,7 @@ type NewPayUserRow = {
   key: string;
   user_id: string;
   user_name: string;
+  ad_type: string;
   user: string;
   click_time: string;
   register_time: string;
@@ -125,6 +126,12 @@ type PagedData<T> = {
   page: number;
   limit: number;
   total: number;
+  sourceAmountSummary?: SourceAmountSummary[];
+};
+
+type SourceAmountSummary = {
+  source: string;
+  total_pay_amount: number | null;
 };
 
 type RegisterUsersData = PagedData<RegisterUserRow> & {
@@ -216,6 +223,7 @@ function AdAttributionShoppingMeta() {
   const [payOrdersContext, setPayOrdersContext] = useState<{ ad_id: string; date: string } | null>(null);
   const [newPayUsersModalOpen, setNewPayUsersModalOpen] = useState(false);
   const [newPayUsersData, setNewPayUsersData] = useState<NewPayUserRow[]>([]);
+  const [newPayUsersSourceSummary, setNewPayUsersSourceSummary] = useState<SourceAmountSummary[]>([]);
   const [newPayUsersPagination, setNewPayUsersPagination] = useState({ page: 1, limit: 20, total: 0 });
   const [newPayUsersContext, setNewPayUsersContext] = useState<NewPayUsersContext | null>(null);
   const [registerUsersModalOpen, setRegisterUsersModalOpen] = useState(false);
@@ -250,6 +258,7 @@ function AdAttributionShoppingMeta() {
   const openNewPayUsersModal = useCallback((record: AdAttributionShoppingRow) => {
     setNewPayUsersContext({ source: "detail", ad_id: record.ad_id, date: record.date });
     setNewPayUsersData([]);
+    setNewPayUsersSourceSummary([]);
     setNewPayUsersPagination((prev) => ({ ...prev, page: 1, total: 0 }));
     setNewPayUsersModalOpen(true);
   }, []);
@@ -264,6 +273,7 @@ function AdAttributionShoppingMeta() {
         player: dailyPlayer,
       });
       setNewPayUsersData([]);
+      setNewPayUsersSourceSummary([]);
       setNewPayUsersPagination((prev) => ({ ...prev, page: 1, total: 0 }));
       setNewPayUsersModalOpen(true);
     },
@@ -274,6 +284,7 @@ function AdAttributionShoppingMeta() {
     setNewPayUsersModalOpen(false);
     setNewPayUsersContext(null);
     setNewPayUsersData([]);
+    setNewPayUsersSourceSummary([]);
     setNewPayUsersPagination((prev) => ({ ...prev, page: 1, total: 0 }));
   }, []);
 
@@ -328,31 +339,6 @@ function AdAttributionShoppingMeta() {
     { title: "日期", dataIndex: "date", key: "date", width: 120, fixed: "left" },
     { title: "广告花费", dataIndex: "spend", key: "spend", width: 120, fixed: "left", render: (v: number) => usd(v) },
     { title: "注册数", dataIndex: "register", key: "register", width: 100, render: (v: number) => formatNumber(v) },
-    // 新增同日归因字段：当天点击首充广告且当天充值的用户，再汇总这些用户当天全部充值。
-    {
-      title: <MetricTitle label="当日充值用户数" tip="点击首充广告且在同一自然日完成成功充值的用户数，按 uid 去重" />,
-      dataIndex: "sameDayPayUsers",
-      key: "dailySameDayPayUsers",
-      width: 160,
-      render: (v: number) => formatNumber(v),
-    },
-    {
-      title: <MetricTitle label="充值笔数" tip="当日充值用户数在当天产生的全部成功充值订单数，不仅限于带广告归因的那一笔" />,
-      dataIndex: "sameDayPayOrders",
-      key: "dailySameDayPayOrders",
-      width: 130,
-      render: (v: number) => formatNumber(v),
-    },
-    {
-      title: <MetricTitle label="总产值金额" tip="当日充值用户数全部成功充值订单的 金额 合计，保留两位小数" />,
-      dataIndex: "sameDayPayAmount",
-      key: "dailySameDayPayAmount",
-      width: 140,
-      render: (v: number) => usd(v),
-    },
-    { title: "新用户D0 ROAS", dataIndex: "newUserD0Roas", key: "dailyNewUserD0Roas", width: 140, render: (v: number) => pct(v) },
-    { title: "D0 ROAS", dataIndex: "sameDayD0Roas", key: "dailySameDayD0Roas", width: 120, render: (v: number) => pct(v) },
-    // { title: "充值用户数", dataIndex: "payUsers", key: "payUsers", width: 120, render: (v: number) => formatNumber(v) },
     {
       title: "新客充值用户数",
       dataIndex: "newPayUsers",
@@ -380,6 +366,31 @@ function AdAttributionShoppingMeta() {
     // { title: "CPA(充值)", dataIndex: "cpaPay", key: "cpaPay", width: 120, render: (v: number) => usd(v) },
     { title: "CPA(新客首充)", dataIndex: "cpaNewPay", key: "cpaNewPay", width: 140, render: (v: number) => usd(v) },
     { title: "新客充值转化率", dataIndex: "newPayRate", key: "newPayRate", width: 140, render: (v: number) => pct(v) },
+    {
+      title: <MetricTitle label="总产值金额" tip="当日充值用户数全部成功充值订单的 金额 合计，保留两位小数" />,
+      dataIndex: "sameDayPayAmount",
+      key: "dailySameDayPayAmount",
+      width: 140,
+      render: (v: number) => usd(v),
+    },
+    { title: "新用户D0 ROAS", dataIndex: "newUserD0Roas", key: "dailyNewUserD0Roas", width: 140, render: (v: number) => pct(v) },
+    { title: "D0 ROAS", dataIndex: "sameDayD0Roas", key: "dailySameDayD0Roas", width: 120, render: (v: number) => pct(v) },
+    // { title: "充值用户数", dataIndex: "payUsers", key: "payUsers", width: 120, render: (v: number) => formatNumber(v) },
+    // 新增同日归因字段：当天点击首充广告且当天充值的用户，再汇总这些用户当天全部充值。
+    {
+      title: <MetricTitle label="当日充值用户数" tip="点击首充广告且在同一自然日完成成功充值的用户数，按 uid 去重" />,
+      dataIndex: "sameDayPayUsers",
+      key: "dailySameDayPayUsers",
+      width: 160,
+      render: (v: number) => formatNumber(v),
+    },
+    {
+      title: <MetricTitle label="充值笔数" tip="当日充值用户数在当天产生的全部成功充值订单数，不仅限于带广告归因的那一笔" />,
+      dataIndex: "sameDayPayOrders",
+      key: "dailySameDayPayOrders",
+      width: 130,
+      render: (v: number) => formatNumber(v),
+    },
    
     {
       title: "注册用户3日充值",
@@ -569,22 +580,22 @@ function AdAttributionShoppingMeta() {
     const cols = [
       { label: "日期", value: (r: AdAttributionShoppingDailyRow) => r.date },
       { label: "广告花费", value: (r: AdAttributionShoppingDailyRow) => usd(r.spend) },
-      { label: "当日充值用户数", value: (r: AdAttributionShoppingDailyRow) => formatNumber(r.sameDayPayUsers) },
-      { label: "充值笔数(同日归因)", value: (r: AdAttributionShoppingDailyRow) => formatNumber(r.sameDayPayOrders) },
+      { label: "注册数", value: (r: AdAttributionShoppingDailyRow) => formatNumber(r.register) },
+      { label: "新客充值用户数", value: (r: AdAttributionShoppingDailyRow) => formatNumber(r.newPayUsers) },
+      { label: "新客充值笔数", value: (r: AdAttributionShoppingDailyRow) => formatNumber(r.newPayOrders) },
+      { label: "新客充值金额", value: (r: AdAttributionShoppingDailyRow) => usd(r.newPayAmount) },
+      { label: "CPA(新客首充)", value: (r: AdAttributionShoppingDailyRow) => usd(r.cpaNewPay) },
+      { label: "新客充值转化率", value: (r: AdAttributionShoppingDailyRow) => pct(r.newPayRate) },
       { label: "总产值金额", value: (r: AdAttributionShoppingDailyRow) => usd(r.sameDayPayAmount) },
       { label: "新用户D0 ROAS", value: (r: AdAttributionShoppingDailyRow) => pct(r.newUserD0Roas) },
       { label: "D0 ROAS", value: (r: AdAttributionShoppingDailyRow) => pct(r.sameDayD0Roas) },
+      { label: "当日充值用户数", value: (r: AdAttributionShoppingDailyRow) => formatNumber(r.sameDayPayUsers) },
+      { label: "充值笔数(同日归因)", value: (r: AdAttributionShoppingDailyRow) => formatNumber(r.sameDayPayOrders) },
       { label: "充值用户数", value: (r: AdAttributionShoppingDailyRow) => formatNumber(r.payUsers) },
-      { label: "新客充值用户数", value: (r: AdAttributionShoppingDailyRow) => formatNumber(r.newPayUsers) },
       { label: "充值笔数", value: (r: AdAttributionShoppingDailyRow) => formatNumber(r.payOrders) },
-      { label: "新客充值笔数", value: (r: AdAttributionShoppingDailyRow) => formatNumber(r.newPayOrders) },
       { label: "充值金额", value: (r: AdAttributionShoppingDailyRow) => usd(r.payAmount) },
-      { label: "新客充值金额", value: (r: AdAttributionShoppingDailyRow) => usd(r.newPayAmount) },
       { label: "ROAS", value: (r: AdAttributionShoppingDailyRow) => pct(r.roas) },
       { label: "CPA(充值)", value: (r: AdAttributionShoppingDailyRow) => usd(r.cpaPay) },
-      { label: "CPA(新客首充)", value: (r: AdAttributionShoppingDailyRow) => usd(r.cpaNewPay) },
-      { label: "新客充值转化率", value: (r: AdAttributionShoppingDailyRow) => pct(r.newPayRate) },
-      { label: "注册数", value: (r: AdAttributionShoppingDailyRow) => formatNumber(r.register) },
       { label: "注册用户3日充值", value: (r: AdAttributionShoppingDailyRow) => r.register3dAmount || "-" },
       { label: "注册用户7日充值", value: (r: AdAttributionShoppingDailyRow) => r.register7dAmount || "-" },
       { label: "注册用户14日充值", value: (r: AdAttributionShoppingDailyRow) => r.register14dAmount || "-" },
@@ -847,8 +858,19 @@ function AdAttributionShoppingMeta() {
 
   const newPayUsersColumns: ColumnsType<NewPayUserRow> = useMemo(
     () => [
-      { title: "用户id", dataIndex: "user_id", key: "user_id", width: 160 },
-      { title: "用户名称", dataIndex: "user_name", key: "user_name", width: 220 },
+      {
+        title: "用户id",
+        dataIndex: "user_id",
+        key: "user_id",
+        width: 180,
+        render: (v: string, record) => (
+          <div>
+            <div>{v}</div>
+            <div style={{ color: "#ef4444", marginTop: 8 }}>{record.user_name || "-"}</div>
+          </div>
+        ),
+      },
+      { title: "来源", dataIndex: "ad_type", key: "ad_type", width: 180 },
       { title: "点击广告时间", dataIndex: "click_time", key: "click_time", width: 260, render: (v: string) => <span style={{ whiteSpace: "pre-line" }}>{v}</span> },
       { title: "注册时间", dataIndex: "register_time", key: "register_time", width: 260, render: (v: string) => <span style={{ whiteSpace: "pre-line" }}>{v}</span> },
       { title: "总充值", dataIndex: "total_pay_amount", key: "total_pay_amount", width: 140, render: (v: number | null) => usd(v) },
@@ -975,10 +997,18 @@ function AdAttributionShoppingMeta() {
       });
       if (res?.code === 0 && res?.data && newPayUsersContext) {
         const rawList = Array.isArray(res.data) ? res.data : res.data?.list || res.data?.data || [];
+        const rawSummary = res.source_amount_summary || res.data?.source_amount_summary || [];
+        const sourceAmountSummary = Array.isArray(rawSummary)
+          ? rawSummary.map((item: any) => ({
+              source: String(item?.source ?? item?.ad_type ?? "-") || "-",
+              total_pay_amount: toNumber(item?.total_pay_amount ?? item?.amount ?? item?.total),
+            }))
+          : [];
         const list = rawList.map((item: any, index: number) => {
           const userText = String(item?.user ?? "");
           const userId = item?.user_id ?? item?.uid ?? userText.match(/\(([^)]+)\)$/)?.[1] ?? "-";
           const userName = (item?.user_name ?? item?.nick_name ?? item?.name ?? userText.replace(/\([^)]+\)$/, "")) || "-";
+          const source = item?.ad_type ?? item?.source ?? item?.user_info?.ad_type;
           return {
             key:
               item?.key ||
@@ -986,6 +1016,7 @@ function AdAttributionShoppingMeta() {
               `${newPayUsersContext.source}_${newPayUsersContext.ad_id || "sum"}_${newPayUsersContext.date}_${index + 1}`,
             user_id: String(userId),
             user_name: String(userName),
+            ad_type: source !== undefined && source !== null && String(source) !== "" ? String(source) : "-",
             user: item?.user ?? "-",
             click_time: item?.click_time ?? "-",
             register_time: item?.register_time ?? "-",
@@ -997,6 +1028,7 @@ function AdAttributionShoppingMeta() {
           page: res.page ?? newPayUsersPagination.page,
           limit: res.limit ?? newPayUsersPagination.limit,
           total: res.total ?? res.data?.total ?? rawList.length,
+          sourceAmountSummary,
         };
       }
       return { list: [], page: newPayUsersPagination.page, limit: newPayUsersPagination.limit, total: 0 };
@@ -1007,6 +1039,7 @@ function AdAttributionShoppingMeta() {
   useEffect(() => {
     if (!newPayUsersQuery.data) return;
     setNewPayUsersData(newPayUsersQuery.data.list);
+    setNewPayUsersSourceSummary(newPayUsersQuery.data.sourceAmountSummary || []);
     setNewPayUsersPagination((prev) => ({
       ...prev,
       page: newPayUsersQuery.data.page,
@@ -1333,7 +1366,19 @@ function AdAttributionShoppingMeta() {
         width={1240}
         destroyOnClose
       >
-        <div style={{ marginBottom: 12, display: "flex", justifyContent: "flex-end" }}>
+        <div style={{ marginBottom: 12, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+            <Typography.Text strong>来源总充值</Typography.Text>
+            {newPayUsersSourceSummary.length ? (
+              newPayUsersSourceSummary.map((item) => (
+                <Typography.Text key={item.source}>
+                  {item.source}：{usd(item.total_pay_amount)}
+                </Typography.Text>
+              ))
+            ) : (
+              <Typography.Text type="secondary">-</Typography.Text>
+            )}
+          </div>
           <Button icon={<ReloadOutlined />} loading={newPayUsersLoading} onClick={() => newPayUsersQuery.refetch()}>
             刷新
           </Button>

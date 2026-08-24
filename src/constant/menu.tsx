@@ -2,8 +2,8 @@ import type { MenuProps } from "antd";
 import { HouseIcon } from "lucide-react";
 import PlantAnlyser from "@/view/plant-anlyser";
 //import ProfitLossRanking from "@/view/mark-admin/ProfitLossRanking";
-import AdAttributionShopping from "@/view/ad-analysis/AdAttributionShopping";
-import AdAttributionRegister from "@/view/ad-analysis/AdAttributionRegister";
+// import AdAttributionShopping from "@/view/ad-analysis/AdAttributionShopping";
+// import AdAttributionRegister from "@/view/ad-analysis/AdAttributionRegister";
 import AdAttributionShoppingMeta from "@/view/ad-analysis/AdAttributionShoppingMeta";
 import AdAttributionRegisterMeta from "@/view/ad-analysis/AdAttributionRegisterMeta";
 import Personnel from "@/view/personnel";
@@ -38,6 +38,7 @@ export const RouteList: MenuItemType[] = [
     icon: <HouseIcon className="w-4 h-4" />,
     label: "广告分析",
     children: [
+      /*
       {
         key: "AdAttributionShopping",
         label: "购物广告分析",
@@ -48,6 +49,7 @@ export const RouteList: MenuItemType[] = [
         label: "注册广告分析",
         component: <AdAttributionRegister />,
       },
+      */
       {
         key: "AdAttributionShoppingMeta",
         label: "购物广告分析(首充)",

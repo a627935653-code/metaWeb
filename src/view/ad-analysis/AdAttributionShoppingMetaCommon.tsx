@@ -85,6 +85,9 @@ type PayOrderRow = {
 
 type NewPayUserRow = {
   key: string;
+  user_id: string;
+  user_name: string;
+  ad_type: string;
   user: string;
   click_time: string;
   register_time: string;
@@ -105,6 +108,12 @@ type PagedData<T> = {
   page: number;
   limit: number;
   total: number;
+  sourceAmountSummary?: SourceAmountSummary[];
+};
+
+type SourceAmountSummary = {
+  source: string;
+  total_pay_amount: number | null;
 };
 
 type RegisterUsersData = PagedData<RegisterUserRow> & {
@@ -180,6 +189,7 @@ function AdAttributionShoppingMetaCommon() {
   const [payOrdersContext, setPayOrdersContext] = useState<{ ad_id: string; date: string } | null>(null);
   const [newPayUsersModalOpen, setNewPayUsersModalOpen] = useState(false);
   const [newPayUsersData, setNewPayUsersData] = useState<NewPayUserRow[]>([]);
+  const [newPayUsersSourceSummary, setNewPayUsersSourceSummary] = useState<SourceAmountSummary[]>([]);
   const [newPayUsersPagination, setNewPayUsersPagination] = useState({ page: 1, limit: 20, total: 0 });
   const [newPayUsersContext, setNewPayUsersContext] = useState<{ ad_id: string; date: string } | null>(null);
   const [registerUsersModalOpen, setRegisterUsersModalOpen] = useState(false);
@@ -205,6 +215,7 @@ function AdAttributionShoppingMetaCommon() {
   const openNewPayUsersModal = useCallback((record: AdAttributionShoppingRow) => {
     setNewPayUsersContext({ ad_id: record.ad_id, date: record.date });
     setNewPayUsersData([]);
+    setNewPayUsersSourceSummary([]);
     setNewPayUsersPagination((prev) => ({ ...prev, page: 1, total: 0 }));
     setNewPayUsersModalOpen(true);
   }, []);
@@ -213,6 +224,7 @@ function AdAttributionShoppingMetaCommon() {
     setNewPayUsersModalOpen(false);
     setNewPayUsersContext(null);
     setNewPayUsersData([]);
+    setNewPayUsersSourceSummary([]);
     setNewPayUsersPagination((prev) => ({ ...prev, page: 1, total: 0 }));
   }, []);
 
@@ -634,7 +646,19 @@ function AdAttributionShoppingMetaCommon() {
 
   const newPayUsersColumns: ColumnsType<NewPayUserRow> = useMemo(
     () => [
-      { title: "用户", dataIndex: "user", key: "user", width: 220 },
+      {
+        title: "用户id",
+        dataIndex: "user_id",
+        key: "user_id",
+        width: 180,
+        render: (v: string, record) => (
+          <div>
+            <div>{v}</div>
+            <div style={{ color: "#ef4444", marginTop: 8 }}>{record.user_name || "-"}</div>
+          </div>
+        ),
+      },
+      { title: "来源", dataIndex: "ad_type", key: "ad_type", width: 180 },
       { title: "点击广告时间", dataIndex: "click_time", key: "click_time", width: 260 },
       { title: "注册时间", dataIndex: "register_time", key: "register_time", width: 260 },
       { title: "充值时间", dataIndex: "first_pay_time", key: "first_pay_time", width: 260 },
@@ -731,21 +755,38 @@ function AdAttributionShoppingMetaCommon() {
       });
       if (res?.code === 0 && res?.data && newPayUsersContext) {
         const rawList = Array.isArray(res.data) ? res.data : res.data?.list || res.data?.data || [];
-        const list = rawList.map((item: any, index: number) => ({
-          key:
-            item?.key ||
-            item?.id ||
-            `${newPayUsersContext.ad_id}_${newPayUsersContext.date}_${index + 1}`,
-          user: item?.user ?? "-",
-          click_time: item?.click_time ?? "-",
-          register_time: item?.register_time ?? "-",
-          first_pay_time: item?.first_pay_time ?? "-",
-        }));
+        const rawSummary = res.source_amount_summary || res.data?.source_amount_summary || [];
+        const sourceAmountSummary = Array.isArray(rawSummary)
+          ? rawSummary.map((item: any) => ({
+              source: String(item?.source ?? item?.ad_type ?? "-") || "-",
+              total_pay_amount: toNumber(item?.total_pay_amount ?? item?.amount ?? item?.total),
+            }))
+          : [];
+        const list = rawList.map((item: any, index: number) => {
+          const userText = String(item?.user ?? "");
+          const userId = item?.user_id ?? item?.uid ?? userText.match(/\(([^)]+)\)$/)?.[1] ?? "-";
+          const userName = (item?.user_name ?? item?.nick_name ?? item?.name ?? userText.replace(/\([^)]+\)$/, "")) || "-";
+          const source = item?.ad_type ?? item?.source ?? item?.user_info?.ad_type;
+          return {
+            key:
+              item?.key ||
+              item?.id ||
+              `${newPayUsersContext.ad_id}_${newPayUsersContext.date}_${index + 1}`,
+            user_id: String(userId),
+            user_name: String(userName),
+            ad_type: source !== undefined && source !== null && String(source) !== "" ? String(source) : "-",
+            user: item?.user ?? "-",
+            click_time: item?.click_time ?? "-",
+            register_time: item?.register_time ?? "-",
+            first_pay_time: item?.first_pay_time ?? "-",
+          };
+        });
         return {
           list,
           page: res.page ?? newPayUsersPagination.page,
           limit: res.limit ?? newPayUsersPagination.limit,
           total: res.total ?? res.data?.total ?? rawList.length,
+          sourceAmountSummary,
         };
       }
       return { list: [], page: newPayUsersPagination.page, limit: newPayUsersPagination.limit, total: 0 };
@@ -756,6 +797,7 @@ function AdAttributionShoppingMetaCommon() {
   useEffect(() => {
     if (!newPayUsersQuery.data) return;
     setNewPayUsersData(newPayUsersQuery.data.list);
+    setNewPayUsersSourceSummary(newPayUsersQuery.data.sourceAmountSummary || []);
     setNewPayUsersPagination((prev) => ({
       ...prev,
       page: newPayUsersQuery.data.page,
@@ -994,7 +1036,19 @@ function AdAttributionShoppingMetaCommon() {
         width={1240}
         destroyOnClose
       >
-        <div style={{ marginBottom: 12, display: "flex", justifyContent: "flex-end" }}>
+        <div style={{ marginBottom: 12, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+            <Typography.Text strong>来源总充值</Typography.Text>
+            {newPayUsersSourceSummary.length ? (
+              newPayUsersSourceSummary.map((item) => (
+                <Typography.Text key={item.source}>
+                  {item.source}：{usd(item.total_pay_amount)}
+                </Typography.Text>
+              ))
+            ) : (
+              <Typography.Text type="secondary">-</Typography.Text>
+            )}
+          </div>
           <Button icon={<ReloadOutlined />} loading={newPayUsersLoading} onClick={() => newPayUsersQuery.refetch()}>
             刷新
           </Button>
