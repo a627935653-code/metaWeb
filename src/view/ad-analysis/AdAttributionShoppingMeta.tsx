@@ -428,7 +428,7 @@ function AdAttributionShoppingMeta() {
     },
     // { title: "ROAS", dataIndex: "roas", key: "roas", width: 100, render: (v: number) => pct(v) },
     // { title: "CPA(充值)", dataIndex: "cpaPay", key: "cpaPay", width: 120, render: (v: number) => usd(v) },
-    { title: "cap（现有：新客首充成本）", dataIndex: "cpaNewPay", key: "cpaNewPay", width: 180, render: (v: number) => usd(v) },
+    { title: "CPA（现有：新客首充成本）", dataIndex: "cpaNewPay", key: "cpaNewPay", width: 180, render: (v: number) => usd(v) },
     {
       title: "CPA（总用户首充成本）",
       key: "totalNewPayCpa",
