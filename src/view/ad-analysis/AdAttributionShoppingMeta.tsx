@@ -49,10 +49,12 @@ type AdAttributionShoppingDailyRow = {
   spend: number;
   payUsers: number;
   newPayUsers: number;
+  unAttributedNewPayUsers: number;
   payOrders: number;
   newPayOrders: number;
   payAmount: number;
   newPayAmount: number;
+  totalNewPayAmountWithUnAttributed: number;
   roas: number;
   sameDayPayUsers: number;
   sameDayPayOrders: number;
@@ -63,6 +65,7 @@ type AdAttributionShoppingDailyRow = {
   cpaNewPay: number;
   newPayRate: number;
   register: number;
+  unAttributedRegister: number;
   cpaRegister: number;
   uv: number;
   register3dAmount: string;
@@ -134,11 +137,16 @@ type SourceAmountSummary = {
   total_pay_amount: number | null;
 };
 
-type RegisterUsersData = PagedData<RegisterUserRow> & {
-  ipRepeat: string;
+type NewPayUsersContext = {
+  source: "detail" | "daily";
+  date: string;
+  ad_id?: string;
+  account_ids?: string[];
+  channels?: string[];
+  player?: string;
 };
 
-type NewPayUsersContext = {
+type RegisterUsersContext = {
   source: "detail" | "daily";
   date: string;
   ad_id?: string;
@@ -188,6 +196,7 @@ const PAY_ORDERS_DETAIL_PATH = "/meta/payOrdersListMeta";
 const NEW_PAY_USERS_DETAIL_PATH = "/meta/newPayUserListMeta";
 const NEW_PAY_USERS_SUM_PATH = "/meta/newPayUserListSumMeta";
 const REGISTER_USERS_DETAIL_PATH = "/meta/registerUserListMeta";
+const REGISTER_USERS_SUM_PATH = "/meta/registerUserListSumMeta";
 const REGISTER_YESTERDAY_RANK_PATH = "/meta/registerYesterdayRankMeta";
 const ADMIN_ONLY_DAILY_COLUMNS = new Set([
   "register3dAmount",
@@ -228,9 +237,8 @@ function AdAttributionShoppingMeta() {
   const [newPayUsersContext, setNewPayUsersContext] = useState<NewPayUsersContext | null>(null);
   const [registerUsersModalOpen, setRegisterUsersModalOpen] = useState(false);
   const [registerUsersData, setRegisterUsersData] = useState<RegisterUserRow[]>([]);
-  const [registerUsersIpRepeat, setRegisterUsersIpRepeat] = useState("");
   const [registerUsersPagination, setRegisterUsersPagination] = useState({ page: 1, limit: 20, total: 0 });
-  const [registerUsersContext, setRegisterUsersContext] = useState<{ ad_id: string; date: string } | null>(null);
+  const [registerUsersContext, setRegisterUsersContext] = useState<RegisterUsersContext | null>(null);
   const [registerYesterdayModalOpen, setRegisterYesterdayModalOpen] = useState(false);
   const [registerYesterdayData, setRegisterYesterdayData] = useState<RegisterYesterdayRow[]>([]);
   const [registerYesterdayPagination, setRegisterYesterdayPagination] = useState({ page: 1, limit: 20, total: 0 });
@@ -288,19 +296,35 @@ function AdAttributionShoppingMeta() {
     setNewPayUsersPagination((prev) => ({ ...prev, page: 1, total: 0 }));
   }, []);
 
-  const openRegisterUsersModal = useCallback((record: AdAttributionShoppingRow) => {
-    setRegisterUsersContext({ ad_id: record.ad_id, date: record.date });
-    setRegisterUsersData([]);
-    setRegisterUsersIpRepeat("");
-    setRegisterUsersPagination((prev) => ({ ...prev, page: 1, total: 0 }));
-    setRegisterUsersModalOpen(true);
-  }, []);
+  // Register user modal is temporarily disabled. Restore these handlers and
+  // the link renderers below when the popup needs to be opened again.
+  // const openRegisterUsersModal = useCallback((record: AdAttributionShoppingRow) => {
+  //   setRegisterUsersContext({ source: "detail", ad_id: record.ad_id, date: record.date });
+  //   setRegisterUsersData([]);
+  //   setRegisterUsersPagination((prev) => ({ ...prev, page: 1, total: 0 }));
+  //   setRegisterUsersModalOpen(true);
+  // }, []);
+
+  // const openDailyRegisterUsersModal = useCallback(
+  //   (record: AdAttributionShoppingDailyRow) => {
+  //     setRegisterUsersContext({
+  //       source: "daily",
+  //       date: record.date,
+  //       account_ids: [...dailyBuyer],
+  //       channels: [...dailyChannel],
+  //       player: dailyPlayer,
+  //     });
+  //     setRegisterUsersData([]);
+  //     setRegisterUsersPagination((prev) => ({ ...prev, page: 1, total: 0 }));
+  //     setRegisterUsersModalOpen(true);
+  //   },
+  //   [dailyBuyer, dailyChannel, dailyPlayer]
+  // );
 
   const closeRegisterUsersModal = useCallback(() => {
     setRegisterUsersModalOpen(false);
     setRegisterUsersContext(null);
     setRegisterUsersData([]);
-    setRegisterUsersIpRepeat("");
     setRegisterUsersPagination((prev) => ({ ...prev, page: 1, total: 0 }));
   }, []);
 
@@ -338,7 +362,33 @@ function AdAttributionShoppingMeta() {
   const dailyColumns: ColumnsType<AdAttributionShoppingDailyRow> = [
     { title: "日期", dataIndex: "date", key: "date", width: 120, fixed: "left" },
     { title: "广告花费", dataIndex: "spend", key: "spend", width: 120, fixed: "left", render: (v: number) => usd(v) },
-    { title: "注册数", dataIndex: "register", key: "register", width: 100, render: (v: number) => formatNumber(v) },
+    {
+      title: "总注册数",
+      key: "totalRegister",
+      width: 100,
+      render: (_value: unknown, record) => formatNumber((toNumber(record.register) || 0) + (toNumber(record.unAttributedRegister) || 0)),
+    },
+    {
+      title: "归因注册数",
+      dataIndex: "register",
+      key: "register",
+      width: 100,
+      render: (v: number) => formatNumber(v),
+    },
+    {
+      title: "未归因注册数",
+      dataIndex: "unAttributedRegister",
+      key: "unAttributedRegister",
+      width: 120,
+      render: (v: number) => formatNumber(v),
+    },
+    {
+      title: "总新客充值用户数",
+      key: "totalNewPayUsers",
+      width: 160,
+      render: (_value: unknown, record) =>
+        formatNumber((toNumber(record.newPayUsers) || 0) + (toNumber(record.unAttributedNewPayUsers) || 0)),
+    },
     {
       title: "新客充值用户数",
       dataIndex: "newPayUsers",
@@ -358,13 +408,36 @@ function AdAttributionShoppingMeta() {
         );
       },
     },
+    {
+      title: "未归因新客充值用户数",
+      dataIndex: "unAttributedNewPayUsers",
+      key: "unAttributedNewPayUsers",
+      width: 180,
+      render: (v: number) => formatNumber(v),
+    },
     // { title: "充值笔数", dataIndex: "payOrders", key: "payOrders", width: 120, render: (v: number) => formatNumber(v) },
     { title: "新客充值笔数", dataIndex: "newPayOrders", key: "newPayOrders", width: 140, render: (v: number) => formatNumber(v) },
     // { title: "充值金额", dataIndex: "payAmount", key: "payAmount", width: 120, render: (v: number) => usd(v) },
     { title: "新客当日总充值金额", dataIndex: "newPayAmount", key: "newPayAmount", width: 140, render: (v: number) => usd(v) },
+    {
+      title: "当日总充值金额（包含未归因用户）",
+      dataIndex: "totalNewPayAmountWithUnAttributed",
+      key: "totalNewPayAmountWithUnAttributed",
+      width: 220,
+      render: (v: number) => usd(v),
+    },
     // { title: "ROAS", dataIndex: "roas", key: "roas", width: 100, render: (v: number) => pct(v) },
     // { title: "CPA(充值)", dataIndex: "cpaPay", key: "cpaPay", width: 120, render: (v: number) => usd(v) },
-    { title: "CPA(新客首充)", dataIndex: "cpaNewPay", key: "cpaNewPay", width: 140, render: (v: number) => usd(v) },
+    { title: "cap（现有：新客首充成本）", dataIndex: "cpaNewPay", key: "cpaNewPay", width: 180, render: (v: number) => usd(v) },
+    {
+      title: "CPA（总用户首充成本）",
+      key: "totalNewPayCpa",
+      width: 180,
+      render: (_value: unknown, record) => {
+        const totalNewPayUsers = (toNumber(record.newPayUsers) || 0) + (toNumber(record.unAttributedNewPayUsers) || 0);
+        return totalNewPayUsers > 0 ? usd((toNumber(record.spend) || 0) / totalNewPayUsers) : usd(0);
+      },
+    },
     { title: "新客充值转化率", dataIndex: "newPayRate", key: "newPayRate", width: 140, render: (v: number) => pct(v) },
     {
       title: <MetricTitle label="总产值金额" tip="当日充值用户数全部成功充值订单的 金额 合计，保留两位小数" />,
@@ -520,25 +593,7 @@ function AdAttributionShoppingMeta() {
       dataIndex: "register",
       key: "register",
       width: 100,
-      render: (v: number, record) => {
-        const num = toNumber(v) || 0;
-        if (num <= 0) return formatNumber(v);
-        return (
-          <Button
-            type="link"
-            style={{
-              padding: 0,
-              height: "auto",
-              lineHeight: 1.2,
-              borderBottom: "2px solid #22c55e",
-              borderRadius: 0,
-            }}
-            onClick={() => openRegisterUsersModal(record)}
-          >
-            {formatNumber(v)}
-          </Button>
-        );
-      },
+      render: (v: number) => formatNumber(v),
     },
     {
       title: "注册用户3日充值",
@@ -887,9 +942,6 @@ function AdAttributionShoppingMeta() {
         width: 220,
         render: (v: string, record) => <span style={{ color: record.is_pay ? "#ef4444" : undefined }}>{v}</span>,
       },
-      { title: "点击广告时间", dataIndex: "click_time", key: "click_time", width: 260 },
-      { title: "注册时间", dataIndex: "register_time", key: "register_time", width: 260 },
-      { title: "注册IP", dataIndex: "register_ip", key: "register_ip", width: 180 },
     ],
     []
   );
@@ -1048,20 +1100,28 @@ function AdAttributionShoppingMeta() {
     }));
   }, [newPayUsersQuery.data]);
 
-  const registerUsersQuery = useQuery<RegisterUsersData>({
+  const registerUsersQuery = useQuery<PagedData<RegisterUserRow>>({
     queryKey: [
       "meta-register-user-list-contrast-meta",
+      registerUsersContext?.source || "",
       registerUsersContext?.ad_id || "",
       registerUsersContext?.date || "",
+      registerUsersContext?.account_ids || [],
+      registerUsersContext?.channels || [],
+      registerUsersContext?.player || "",
       registerUsersPagination.page,
       registerUsersPagination.limit,
     ],
     queryFn: async () => {
+      const isDaily = registerUsersContext?.source === "daily";
       const res = await fetchPost({
-        path: REGISTER_USERS_DETAIL_PATH,
+        path: isDaily ? REGISTER_USERS_SUM_PATH : REGISTER_USERS_DETAIL_PATH,
         body: JSON.stringify({
-          ad_id: registerUsersContext?.ad_id,
           date: registerUsersContext?.date,
+          ad_id: isDaily ? undefined : registerUsersContext?.ad_id,
+          account_ids: isDaily && registerUsersContext?.account_ids?.length ? registerUsersContext.account_ids : undefined,
+          channels: isDaily && registerUsersContext?.channels?.length ? registerUsersContext.channels : undefined,
+          player: isDaily ? registerUsersContext?.player || undefined : undefined,
           page: registerUsersPagination.page,
           limit: registerUsersPagination.limit,
         }),
@@ -1072,7 +1132,7 @@ function AdAttributionShoppingMeta() {
           key:
             item?.key ||
             item?.id ||
-            `${registerUsersContext.ad_id}_${registerUsersContext.date}_${index + 1}`,
+            `${registerUsersContext.source}_${registerUsersContext.ad_id || "daily"}_${registerUsersContext.date}_${index + 1}`,
           user: item?.user ?? "-",
           click_time: item?.click_time ?? "-",
           register_time: item?.register_time ?? "-",
@@ -1081,7 +1141,6 @@ function AdAttributionShoppingMeta() {
         }));
         return {
           list,
-          ipRepeat: typeof res?.ip_repeat === "string" ? res.ip_repeat : "",
           page: res.page ?? registerUsersPagination.page,
           limit: res.limit ?? registerUsersPagination.limit,
           total: res.total ?? res.data?.total ?? rawList.length,
@@ -1089,7 +1148,6 @@ function AdAttributionShoppingMeta() {
       }
       return {
         list: [],
-        ipRepeat: "",
         page: registerUsersPagination.page,
         limit: registerUsersPagination.limit,
         total: 0,
@@ -1101,7 +1159,6 @@ function AdAttributionShoppingMeta() {
   useEffect(() => {
     if (!registerUsersQuery.data) return;
     setRegisterUsersData(registerUsersQuery.data.list);
-    setRegisterUsersIpRepeat(registerUsersQuery.data.ipRepeat);
     setRegisterUsersPagination((prev) => ({
       ...prev,
       page: registerUsersQuery.data.page,
@@ -1403,35 +1460,11 @@ function AdAttributionShoppingMeta() {
       </Modal>
 
       <Modal
-        title={
-          <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
-            <div style={{ whiteSpace: "nowrap" }}>
-              {`注册用户明细（${registerUsersContext?.ad_id || "-"} / ${registerUsersContext?.date || "-"}）`}
-            </div>
-            {registerUsersIpRepeat ? (
-              <div
-                style={{
-                  flex: 1,
-                  textAlign: "right",
-                  whiteSpace: "pre-wrap",
-                  wordBreak: "break-all",
-                  overflowWrap: "anywhere",
-                  lineHeight: 1.2,
-                  paddingRight: 32,
-                }}
-              >
-                <span style={{ color: "#6b7280" }}>重复IP：</span>
-                <span>{registerUsersIpRepeat}</span>
-              </div>
-            ) : (
-              <div style={{ flex: 1 }} />
-            )}
-          </div>
-        }
+        title={`注册用户明细（${registerUsersContext?.source === "daily" ? "日汇总" : registerUsersContext?.ad_id || "-"} / ${registerUsersContext?.date || "-"}）`}
         open={registerUsersModalOpen}
         onCancel={closeRegisterUsersModal}
         footer={null}
-        width={1160}
+        width={520}
         destroyOnClose
       >
         <div style={{ marginBottom: 12, display: "flex", justifyContent: "flex-end" }}>
@@ -1444,7 +1477,7 @@ function AdAttributionShoppingMeta() {
           dataSource={registerUsersData}
           rowKey={(record) => record.key}
           loading={registerUsersLoading}
-          scroll={{ x: 960, y: 520 }}
+          scroll={{ y: 520 }}
           pagination={{
             current: registerUsersPagination.page,
             pageSize: registerUsersPagination.limit,
