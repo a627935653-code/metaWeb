@@ -390,7 +390,7 @@ function AdAttributionShoppingMeta() {
         formatNumber((toNumber(record.newPayUsers) || 0) + (toNumber(record.unAttributedNewPayUsers) || 0)),
     },
     {
-      title: "新客充值用户数",
+      title: "已归因新客充值用户数",
       dataIndex: "newPayUsers",
       key: "newPayUsers",
       width: 140,
