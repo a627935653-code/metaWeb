@@ -106,6 +106,22 @@ type NewPayUserRow = {
   total_pay_amount: number | null;
 };
 
+type SameDayPayUserRow = {
+  key: string;
+  user_id: string;
+  user_name: string;
+  click_time_la: string;
+  click_time_bj: string;
+  pay_time_la: string;
+  pay_time_bj: string;
+  pay_amount: number;
+};
+
+type SameDayPayUsersContext = {
+  ad_id: string;
+  date: string;
+};
+
 type RegisterUserRow = {
   key: string;
   user: string;
@@ -195,6 +211,7 @@ const ROAS_PAY_SUM_PATH = "/meta/roaspaysumContrastMeta";
 const PAY_ORDERS_DETAIL_PATH = "/meta/payOrdersListMeta";
 const NEW_PAY_USERS_DETAIL_PATH = "/meta/newPayUserListMeta";
 const NEW_PAY_USERS_SUM_PATH = "/meta/newPayUserListSumMeta";
+const SAME_DAY_PAY_USERS_DETAIL_PATH = "/meta/sameDayPayUserListMeta";
 const REGISTER_USERS_DETAIL_PATH = "/meta/registerUserListMeta";
 const REGISTER_USERS_SUM_PATH = "/meta/registerUserListSumMeta";
 const REGISTER_YESTERDAY_RANK_PATH = "/meta/registerYesterdayRankMeta";
@@ -235,6 +252,10 @@ function AdAttributionShoppingMeta() {
   const [newPayUsersSourceSummary, setNewPayUsersSourceSummary] = useState<SourceAmountSummary[]>([]);
   const [newPayUsersPagination, setNewPayUsersPagination] = useState({ page: 1, limit: 20, total: 0 });
   const [newPayUsersContext, setNewPayUsersContext] = useState<NewPayUsersContext | null>(null);
+  const [sameDayPayUsersModalOpen, setSameDayPayUsersModalOpen] = useState(false);
+  const [sameDayPayUsersData, setSameDayPayUsersData] = useState<SameDayPayUserRow[]>([]);
+  const [sameDayPayUsersPagination, setSameDayPayUsersPagination] = useState({ page: 1, limit: 20, total: 0 });
+  const [sameDayPayUsersContext, setSameDayPayUsersContext] = useState<SameDayPayUsersContext | null>(null);
   const [registerUsersModalOpen, setRegisterUsersModalOpen] = useState(false);
   const [registerUsersData, setRegisterUsersData] = useState<RegisterUserRow[]>([]);
   const [registerUsersPagination, setRegisterUsersPagination] = useState({ page: 1, limit: 20, total: 0 });
@@ -294,6 +315,20 @@ function AdAttributionShoppingMeta() {
     setNewPayUsersData([]);
     setNewPayUsersSourceSummary([]);
     setNewPayUsersPagination((prev) => ({ ...prev, page: 1, total: 0 }));
+  }, []);
+
+  const openSameDayPayUsersModal = useCallback((record: AdAttributionShoppingRow) => {
+    setSameDayPayUsersContext({ ad_id: record.ad_id, date: record.date });
+    setSameDayPayUsersData([]);
+    setSameDayPayUsersPagination((prev) => ({ ...prev, page: 1, total: 0 }));
+    setSameDayPayUsersModalOpen(true);
+  }, []);
+
+  const closeSameDayPayUsersModal = useCallback(() => {
+    setSameDayPayUsersModalOpen(false);
+    setSameDayPayUsersContext(null);
+    setSameDayPayUsersData([]);
+    setSameDayPayUsersPagination((prev) => ({ ...prev, page: 1, total: 0 }));
   }, []);
 
   // Register user modal is temporarily disabled. Restore these handlers and
@@ -525,7 +560,31 @@ function AdAttributionShoppingMeta() {
     { title: "日期", dataIndex: "date", key: "date", width: 120, fixed: "left" },
     { title: "广告花费", dataIndex: "spend", key: "spend", width: 120, render: (v: number) => usd(v) },
     // 新增同日归因字段：当天点击该广告且当天充值的用户，再汇总这些用户当天全部充值。
-    { title: "当日充值用户数", dataIndex: "sameDayPayUsers", key: "sameDayPayUsers", width: 140, render: (v: number) => formatNumber(v) },
+    {
+      title: "当日充值用户数",
+      dataIndex: "sameDayPayUsers",
+      key: "sameDayPayUsers",
+      width: 140,
+      render: (v: number, record) => {
+        const num = toNumber(v) || 0;
+        if (num <= 0) return formatNumber(v);
+        return (
+          <Button
+            type="link"
+            style={{
+              padding: 0,
+              height: "auto",
+              lineHeight: 1.2,
+              borderBottom: "2px solid #22c55e",
+              borderRadius: 0,
+            }}
+            onClick={() => openSameDayPayUsersModal(record)}
+          >
+            {formatNumber(v)}
+          </Button>
+        );
+      },
+    },
     { title: "充值笔数", dataIndex: "sameDayPayOrders", key: "sameDayPayOrders", width: 120, render: (v: number) => formatNumber(v) },
     { title: "总产值金额", dataIndex: "sameDayPayAmount", key: "sameDayPayAmount", width: 120, render: (v: number) => usd(v) },
     { title: "新用户D0 ROAS", dataIndex: "newUserD0Roas", key: "newUserD0Roas", width: 140, render: (v: number) => pct(v) },
@@ -933,6 +992,19 @@ function AdAttributionShoppingMeta() {
     []
   );
 
+  const sameDayPayUsersColumns: ColumnsType<SameDayPayUserRow> = useMemo(
+    () => [
+      { title: "用户id", dataIndex: "user_id", key: "user_id", width: 120 },
+      { title: "用户名称", dataIndex: "user_name", key: "user_name", width: 140 },
+      { title: "点击广告时间(洛杉矶)", dataIndex: "click_time_la", key: "click_time_la", width: 170 },
+      { title: "点击广告时间(北京时间)", dataIndex: "click_time_bj", key: "click_time_bj", width: 170 },
+      { title: "充值时间(洛杉矶)", dataIndex: "pay_time_la", key: "pay_time_la", width: 170 },
+      { title: "充值时间(北京时间)", dataIndex: "pay_time_bj", key: "pay_time_bj", width: 170 },
+      { title: "充值金额", dataIndex: "pay_amount", key: "pay_amount", width: 120, render: (v: number) => usd(v) },
+    ],
+    []
+  );
+
   const registerUsersColumns: ColumnsType<RegisterUserRow> = useMemo(
     () => [
       {
@@ -1100,6 +1172,63 @@ function AdAttributionShoppingMeta() {
     }));
   }, [newPayUsersQuery.data]);
 
+  const sameDayPayUsersQuery = useQuery<PagedData<SameDayPayUserRow>>({
+    queryKey: [
+      "meta-same-day-pay-user-list-contrast-meta",
+      sameDayPayUsersContext?.ad_id || "",
+      sameDayPayUsersContext?.date || "",
+      sameDayPayUsersPagination.page,
+      sameDayPayUsersPagination.limit,
+    ],
+    queryFn: async () => {
+      const res = await fetchPost({
+        path: SAME_DAY_PAY_USERS_DETAIL_PATH,
+        body: JSON.stringify({
+          ad_id: sameDayPayUsersContext?.ad_id,
+          date: sameDayPayUsersContext?.date,
+          page: sameDayPayUsersPagination.page,
+          limit: sameDayPayUsersPagination.limit,
+        }),
+      });
+      if (res?.code === 0 && res?.data && sameDayPayUsersContext) {
+        const rawList = Array.isArray(res.data) ? res.data : res.data?.list || res.data?.data || [];
+        const list = rawList.map((item: any, index: number) => ({
+          key:
+            item?.key ||
+            item?.order_id ||
+            item?.id ||
+            `${sameDayPayUsersContext.ad_id}_${sameDayPayUsersContext.date}_${item?.user_id ?? index + 1}_${index + 1}`,
+          user_id: String(item?.user_id ?? item?.uid ?? "-"),
+          user_name: String(item?.user_name ?? item?.u_name ?? "-"),
+          click_time_la: item?.click_time_la ?? item?.click_time ?? "-",
+          click_time_bj: item?.click_time_bj ?? "-",
+          pay_time_la: item?.pay_time_la ?? item?.pay_time ?? "-",
+          pay_time_bj: item?.pay_time_bj ?? "-",
+          pay_amount: toNumber(item?.pay_amount ?? item?.amount) || 0,
+        }));
+        return {
+          list,
+          page: res.page ?? sameDayPayUsersPagination.page,
+          limit: res.limit ?? sameDayPayUsersPagination.limit,
+          total: res.total ?? res.data?.total ?? rawList.length,
+        };
+      }
+      return { list: [], page: sameDayPayUsersPagination.page, limit: sameDayPayUsersPagination.limit, total: 0 };
+    },
+    enabled: sameDayPayUsersModalOpen && !!sameDayPayUsersContext,
+  });
+
+  useEffect(() => {
+    if (!sameDayPayUsersQuery.data) return;
+    setSameDayPayUsersData(sameDayPayUsersQuery.data.list);
+    setSameDayPayUsersPagination((prev) => ({
+      ...prev,
+      page: sameDayPayUsersQuery.data.page,
+      limit: sameDayPayUsersQuery.data.limit,
+      total: sameDayPayUsersQuery.data.total,
+    }));
+  }, [sameDayPayUsersQuery.data]);
+
   const registerUsersQuery = useQuery<PagedData<RegisterUserRow>>({
     queryKey: [
       "meta-register-user-list-contrast-meta",
@@ -1226,6 +1355,7 @@ function AdAttributionShoppingMeta() {
   const tableLoading = detailTableQuery.isLoading || detailTableQuery.isFetching;
   const payOrdersLoading = payOrdersQuery.isLoading || payOrdersQuery.isFetching;
   const newPayUsersLoading = newPayUsersQuery.isLoading || newPayUsersQuery.isFetching;
+  const sameDayPayUsersLoading = sameDayPayUsersQuery.isLoading || sameDayPayUsersQuery.isFetching;
   const registerUsersLoading = registerUsersQuery.isLoading || registerUsersQuery.isFetching;
   const registerYesterdayLoading = registerYesterdayQuery.isLoading || registerYesterdayQuery.isFetching;
 
@@ -1454,6 +1584,38 @@ function AdAttributionShoppingMeta() {
             pageSizeOptions: ["10", "20", "50", "100"],
             onChange: (page, pageSize) => {
               setNewPayUsersPagination((prev) => ({ ...prev, page, limit: pageSize }));
+            },
+          }}
+        />
+      </Modal>
+
+      <Modal
+        title={`当日充值明细（${sameDayPayUsersContext?.ad_id || "-"} / ${sameDayPayUsersContext?.date || "-"}）`}
+        open={sameDayPayUsersModalOpen}
+        onCancel={closeSameDayPayUsersModal}
+        footer={null}
+        width={1180}
+        destroyOnClose
+      >
+        <div style={{ marginBottom: 12, display: "flex", justifyContent: "flex-end" }}>
+          <Button icon={<ReloadOutlined />} loading={sameDayPayUsersLoading} onClick={() => sameDayPayUsersQuery.refetch()}>
+            刷新
+          </Button>
+        </div>
+        <Table
+          columns={sameDayPayUsersColumns}
+          dataSource={sameDayPayUsersData}
+          rowKey={(record) => record.key}
+          loading={sameDayPayUsersLoading}
+          scroll={{ x: 1060, y: 520 }}
+          pagination={{
+            current: sameDayPayUsersPagination.page,
+            pageSize: sameDayPayUsersPagination.limit,
+            total: sameDayPayUsersPagination.total || sameDayPayUsersData.length,
+            showSizeChanger: true,
+            pageSizeOptions: ["10", "20", "50", "100"],
+            onChange: (page, pageSize) => {
+              setSameDayPayUsersPagination((prev) => ({ ...prev, page, limit: pageSize }));
             },
           }}
         />
