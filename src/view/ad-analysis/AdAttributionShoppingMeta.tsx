@@ -112,8 +112,7 @@ type SameDayPayUserRow = {
   user_name: string;
   click_time_la: string;
   click_time_bj: string;
-  pay_time_la: string;
-  pay_time_bj: string;
+  pay_orders: number;
   pay_amount: number;
 };
 
@@ -994,13 +993,22 @@ function AdAttributionShoppingMeta() {
 
   const sameDayPayUsersColumns: ColumnsType<SameDayPayUserRow> = useMemo(
     () => [
-      { title: "用户id", dataIndex: "user_id", key: "user_id", width: 120 },
-      { title: "用户名称", dataIndex: "user_name", key: "user_name", width: 140 },
+      {
+        title: "用户",
+        dataIndex: "user_id",
+        key: "user_id",
+        width: 160,
+        render: (v: string, record) => (
+          <div>
+            <div>{v}</div>
+            <div style={{ color: "#ef4444", marginTop: 8 }}>{record.user_name || "-"}</div>
+          </div>
+        ),
+      },
       { title: "点击广告时间(洛杉矶)", dataIndex: "click_time_la", key: "click_time_la", width: 170 },
       { title: "点击广告时间(北京时间)", dataIndex: "click_time_bj", key: "click_time_bj", width: 170 },
-      { title: "充值时间(洛杉矶)", dataIndex: "pay_time_la", key: "pay_time_la", width: 170 },
-      { title: "充值时间(北京时间)", dataIndex: "pay_time_bj", key: "pay_time_bj", width: 170 },
-      { title: "充值金额", dataIndex: "pay_amount", key: "pay_amount", width: 120, render: (v: number) => usd(v) },
+      { title: "总充值笔数", dataIndex: "pay_orders", key: "pay_orders", width: 120, render: (v: number) => formatNumber(v) },
+      { title: "总充值金额", dataIndex: "pay_amount", key: "pay_amount", width: 120, render: (v: number) => usd(v) },
     ],
     []
   );
@@ -1195,15 +1203,12 @@ function AdAttributionShoppingMeta() {
         const list = rawList.map((item: any, index: number) => ({
           key:
             item?.key ||
-            item?.order_id ||
-            item?.id ||
-            `${sameDayPayUsersContext.ad_id}_${sameDayPayUsersContext.date}_${item?.user_id ?? index + 1}_${index + 1}`,
+            `${sameDayPayUsersContext.ad_id}_${sameDayPayUsersContext.date}_${item?.user_id ?? index + 1}`,
           user_id: String(item?.user_id ?? item?.uid ?? "-"),
           user_name: String(item?.user_name ?? item?.u_name ?? "-"),
           click_time_la: item?.click_time_la ?? item?.click_time ?? "-",
           click_time_bj: item?.click_time_bj ?? "-",
-          pay_time_la: item?.pay_time_la ?? item?.pay_time ?? "-",
-          pay_time_bj: item?.pay_time_bj ?? "-",
+          pay_orders: toNumber(item?.pay_orders ?? item?.payOrders) || 0,
           pay_amount: toNumber(item?.pay_amount ?? item?.amount) || 0,
         }));
         return {
@@ -1590,11 +1595,11 @@ function AdAttributionShoppingMeta() {
       </Modal>
 
       <Modal
-        title={`当日充值明细（${sameDayPayUsersContext?.ad_id || "-"} / ${sameDayPayUsersContext?.date || "-"}）`}
+        title={`当日充值用户明细（${sameDayPayUsersContext?.ad_id || "-"} / ${sameDayPayUsersContext?.date || "-"}）`}
         open={sameDayPayUsersModalOpen}
         onCancel={closeSameDayPayUsersModal}
         footer={null}
-        width={1180}
+        width={980}
         destroyOnClose
       >
         <div style={{ marginBottom: 12, display: "flex", justifyContent: "flex-end" }}>
@@ -1607,7 +1612,7 @@ function AdAttributionShoppingMeta() {
           dataSource={sameDayPayUsersData}
           rowKey={(record) => record.key}
           loading={sameDayPayUsersLoading}
-          scroll={{ x: 1060, y: 520 }}
+          scroll={{ x: 820, y: 520 }}
           pagination={{
             current: sameDayPayUsersPagination.page,
             pageSize: sameDayPayUsersPagination.limit,
