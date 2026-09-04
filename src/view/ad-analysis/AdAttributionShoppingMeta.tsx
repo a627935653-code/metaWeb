@@ -112,6 +112,8 @@ type SameDayPayUserRow = {
   user_name: string;
   click_time_la: string;
   click_time_bj: string;
+  register_time_la: string;
+  register_time_bj: string;
   pay_orders: number;
   pay_amount: number;
 };
@@ -1005,10 +1007,32 @@ function AdAttributionShoppingMeta() {
           </div>
         ),
       },
-      { title: "点击广告时间(洛杉矶)", dataIndex: "click_time_la", key: "click_time_la", width: 170 },
-      { title: "点击广告时间(北京时间)", dataIndex: "click_time_bj", key: "click_time_bj", width: 170 },
+      {
+        title: "点击广告时间",
+        dataIndex: "click_time_la",
+        key: "click_time_la",
+        width: 220,
+        render: (_v: string, record) => (
+          <div>
+            <div>洛杉矶时间：{record.click_time_la || "-"}</div>
+            <div style={{ color: "#ef4444", marginTop: 8 }}>北京时间：{record.click_time_bj || "-"}</div>
+          </div>
+        ),
+      },
       { title: "总充值笔数", dataIndex: "pay_orders", key: "pay_orders", width: 120, render: (v: number) => formatNumber(v) },
       { title: "总充值金额", dataIndex: "pay_amount", key: "pay_amount", width: 120, render: (v: number) => usd(v) },
+      {
+        title: "注册时间",
+        dataIndex: "register_time_la",
+        key: "register_time_la",
+        width: 220,
+        render: (_v: string, record) => (
+          <div>
+            <div>洛杉矶时间：{record.register_time_la || "-"}</div>
+            <div style={{ color: "#ef4444", marginTop: 8 }}>北京时间：{record.register_time_bj || "-"}</div>
+          </div>
+        ),
+      },
     ],
     []
   );
@@ -1208,6 +1232,8 @@ function AdAttributionShoppingMeta() {
           user_name: String(item?.user_name ?? item?.u_name ?? "-"),
           click_time_la: item?.click_time_la ?? item?.click_time ?? "-",
           click_time_bj: item?.click_time_bj ?? "-",
+          register_time_la: item?.register_time_la ?? "-",
+          register_time_bj: item?.register_time_bj ?? "-",
           pay_orders: toNumber(item?.pay_orders ?? item?.payOrders) || 0,
           pay_amount: toNumber(item?.pay_amount ?? item?.amount) || 0,
         }));
