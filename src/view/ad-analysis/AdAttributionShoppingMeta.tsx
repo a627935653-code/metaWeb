@@ -559,7 +559,7 @@ function AdAttributionShoppingMeta() {
     { title: "广告名称", dataIndex: "ad_name", key: "ad_name", width: 160, fixed: "left" },
     { title: "广告ID", dataIndex: "ad_id", key: "ad_id", width: 140, fixed: "left" },
     { title: "日期", dataIndex: "date", key: "date", width: 120, fixed: "left" },
-    { title: "广告花费", dataIndex: "spend", key: "spend", width: 120, render: (v: number) => usd(v) },
+    { title: "广告花费", dataIndex: "spend", key: "spend", width: 120, fixed: "left", render: (v: number) => usd(v) },
     // 新增同日归因字段：当天点击该广告且当天充值的用户，再汇总这些用户当天全部充值。
     {
       title: "当日充值用户数",
