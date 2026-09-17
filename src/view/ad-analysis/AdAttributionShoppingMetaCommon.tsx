@@ -1,4 +1,4 @@
-import { Button, DatePicker, Input, Modal, Select, Space, Table, Typography } from "antd";
+import { Button, DatePicker, Input, Modal, Select, Space, Table, Typography, message } from "antd";
 import { ReloadOutlined } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
 import { useQuery } from "@tanstack/react-query";
@@ -162,6 +162,85 @@ const ROAS_EXPORT_LABEL_TO_KEY: Record<string, string> = {
   D7ROAS: "d7Roas",
   D14ROAS: "d14Roas",
 };
+const DAILY_EXPORT_RETRY = 3;
+
+type DailyExportCol = {
+  label: string;
+  value: (record: AdAttributionShoppingDailyRow) => string;
+};
+
+const getColumnTitle = (title: unknown): string => {
+  if (typeof title === "string") return title;
+  return "";
+};
+
+const getCommonDailyExportValue = (
+  column: ColumnsType<AdAttributionShoppingDailyRow>[number],
+  record: AdAttributionShoppingDailyRow
+): string => {
+  const col = column as {
+    dataIndex?: keyof AdAttributionShoppingDailyRow;
+    render?: (value: unknown, record: AdAttributionShoppingDailyRow) => unknown;
+  };
+  const dataIndex = col.dataIndex;
+  const rawValue = dataIndex ? record[dataIndex] : undefined;
+
+  if (col.render) {
+    const rendered = col.render(rawValue, record);
+    if (typeof rendered === "string" || typeof rendered === "number") {
+      return String(rendered);
+    }
+  }
+
+  if (dataIndex === "date") {
+    return rawValue ? String(rawValue) : "-";
+  }
+  if (
+    dataIndex === "spend" ||
+    dataIndex === "newPayAmount" ||
+    dataIndex === "payAmount" ||
+    dataIndex === "cpaRegister" ||
+    dataIndex === "cpaPay"
+  ) {
+    return usd(rawValue);
+  }
+  if (
+    dataIndex === "newPayRate" ||
+    dataIndex === "registerRate" ||
+    dataIndex === "roas" ||
+    dataIndex === "d0Roas" ||
+    dataIndex === "d3Roas" ||
+    dataIndex === "d7Roas" ||
+    dataIndex === "d14Roas"
+  ) {
+    return pct(rawValue);
+  }
+  if (rawValue === null || rawValue === undefined) return "-";
+  return formatNumber(rawValue);
+};
+
+const buildDailyExportCols = (columns: ColumnsType<AdAttributionShoppingDailyRow>): DailyExportCol[] =>
+  columns.map((column) => {
+    const col = column as { title?: unknown; key?: string; dataIndex?: string };
+    return {
+      label: getColumnTitle(col.title) || String(col.key || col.dataIndex || ""),
+      value: (record) => getCommonDailyExportValue(column, record),
+    };
+  });
+
+const enumerateDatesDesc = (startDate: string, endDate: string): string[] => {
+  const dates: string[] = [];
+  const end = new Date(`${endDate}T12:00:00`);
+  const start = new Date(`${startDate}T12:00:00`);
+  const cur = new Date(end);
+  while (cur >= start) {
+    dates.push(cur.toISOString().slice(0, 10));
+    cur.setDate(cur.getDate() - 1);
+  }
+  return dates;
+};
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function AdAttributionShoppingMetaCommon() {
   const { fetchPost } = useFetch();
@@ -381,60 +460,6 @@ function AdAttributionShoppingMetaCommon() {
       !ADMIN_ONLY_ROAS_COLUMNS.has(String((column as any).dataIndex))
   );
 
-  const exportDailyCSV = useCallback(() => {
-    const cols = [
-      { label: "日期", value: (r: AdAttributionShoppingDailyRow) => r.date },
-      { label: "广告花费", value: (r: AdAttributionShoppingDailyRow) => usd(r.spend) },
-      { label: "注册数", value: (r: AdAttributionShoppingDailyRow) => formatNumber(r.register) },
-      { label: "新客充值用户数", value: (r: AdAttributionShoppingDailyRow) => formatNumber(r.newPayUsers) },
-      { label: "充值用户数", value: (r: AdAttributionShoppingDailyRow) => formatNumber(r.payUsers) },
-      { label: "新客充值笔数", value: (r: AdAttributionShoppingDailyRow) => formatNumber(r.newPayOrders) },
-      { label: "充值笔数", value: (r: AdAttributionShoppingDailyRow) => formatNumber(r.payOrders) },
-      { label: "新客充值金额", value: (r: AdAttributionShoppingDailyRow) => usd(r.newPayAmount) },
-      { label: "总产值金额", value: (r: AdAttributionShoppingDailyRow) => usd(r.payAmount) },
-      { label: "新客充值转化率", value: (r: AdAttributionShoppingDailyRow) => pct(r.newPayRate) },
-      { label: "CPA(注册)", value: (r: AdAttributionShoppingDailyRow) => usd(r.cpaRegister) },
-      { label: "CPA(充值)", value: (r: AdAttributionShoppingDailyRow) => usd(r.cpaPay) },
-      { label: "独立访客", value: (r: AdAttributionShoppingDailyRow) => formatNumber(r.uv) },
-      { label: "去重注册用户数", value: (r: AdAttributionShoppingDailyRow) => formatNumber(r.registerUv) },
-      { label: "注册转化率(UV)", value: (r: AdAttributionShoppingDailyRow) => pct(r.registerRate) },
-      { label: "ROAS", value: (r: AdAttributionShoppingDailyRow) => pct(r.roas) },
-      { label: "D0ROAS", value: (r: AdAttributionShoppingDailyRow) => pct(r.d0Roas) },
-      { label: "D3ROAS", value: (r: AdAttributionShoppingDailyRow) => pct(r.d3Roas) },
-      { label: "D7ROAS", value: (r: AdAttributionShoppingDailyRow) => pct(r.d7Roas) },
-      { label: "D14ROAS", value: (r: AdAttributionShoppingDailyRow) => pct(r.d14Roas) },
-    ].filter(
-      (column) =>
-        isAdmin ||
-        !ADMIN_ONLY_ROAS_COLUMNS.has(
-          ROAS_EXPORT_LABEL_TO_KEY[String((column as any).label)] || ""
-        )
-    );
-    const header = cols.map((c) => c.label).join(",");
-    const body = dailyTableData
-      .map((row) =>
-        cols
-          .map((c) => {
-            const v = c.value(row);
-            const s = String(v ?? "");
-            const e = s.replace(/"/g, '""');
-            return `"${e}"`;
-          })
-          .join(",")
-      )
-      .join("\r\n");
-    const csv = "\uFEFF" + header + "\r\n" + body;
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "当日归因-购物(日汇总)-common.csv";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  }, [dailyTableData, isAdmin]);
-
   const exportCSV = useCallback(() => {
     const cols = [
       { label: "广告名称", value: (r: AdAttributionShoppingRow) => r.ad_name },
@@ -516,6 +541,7 @@ function AdAttributionShoppingMetaCommon() {
     [detailRangeParams, adName, adType, buyer, channel, player]
   );
   const [dailyAppliedFilterKey, setDailyAppliedFilterKey] = useState(dailyFilterKey);
+  const [dailyExporting, setDailyExporting] = useState(false);
   const [detailAppliedFilterKey, setDetailAppliedFilterKey] = useState(detailFilterKey);
 
   useEffect(() => {
@@ -527,6 +553,113 @@ function AdAttributionShoppingMetaCommon() {
     setDetailAppliedFilterKey(detailFilterKey);
     setPagination((prev) => (prev.page === 1 ? prev : { ...prev, page: 1, total: 0 }));
   }, [detailFilterKey]);
+
+  const exportDailyCSV = useCallback(async () => {
+    if (!dailyRangeParams.start_date || !dailyRangeParams.end_date) {
+      message.warning("请先选择日期范围");
+      return;
+    }
+
+    const cols = buildDailyExportCols(dailyColumns);
+    setDailyExporting(true);
+    let hideProgress = message.loading("正在分批导出，请稍候...", 0);
+    try {
+      const exportDates = enumerateDatesDesc(
+        dailyRangeParams.start_date,
+        dailyRangeParams.end_date
+      );
+      const allRows: AdAttributionShoppingDailyRow[] = [];
+
+      const fetchDailyExportRow = async (date: string) => {
+        let lastError: Error | null = null;
+        for (let attempt = 1; attempt <= DAILY_EXPORT_RETRY; attempt += 1) {
+          try {
+            const res = await fetchPost({
+              path: ROAS_PAY_SUM_PATH,
+              body: JSON.stringify({
+                start_date: date,
+                end_date: date,
+                account_ids: dailyBuyer.length ? dailyBuyer : undefined,
+                channels: dailyChannel.length ? dailyChannel : undefined,
+                player: dailyPlayer || undefined,
+                page: 1,
+                limit: 1,
+                for_export: 1,
+              }),
+            });
+
+            if (!res) {
+              throw new Error("网络异常，请稍后重试");
+            }
+            if (res.code !== 0) {
+              throw new Error(res.msg || "拉取数据失败");
+            }
+
+            const rawList = Array.isArray(res.data) ? res.data : res.data?.data || [];
+            return rawList[0] as AdAttributionShoppingDailyRow | undefined;
+          } catch (error) {
+            lastError = error instanceof Error ? error : new Error("拉取数据失败");
+            if (attempt < DAILY_EXPORT_RETRY) {
+              await sleep(1500 * attempt);
+            }
+          }
+        }
+        throw lastError ?? new Error(`导出 ${date} 失败`);
+      };
+
+      for (let index = 0; index < exportDates.length; index += 1) {
+        const date = exportDates[index];
+        hideProgress();
+        hideProgress = message.loading(
+          `正在导出 ${index + 1}/${exportDates.length}（${date}）...`,
+          0
+        );
+
+        const row = await fetchDailyExportRow(date);
+        if (row) {
+          allRows.push({
+            ...row,
+            key: row.key || row.date || date,
+          });
+        }
+      }
+
+      if (!allRows.length) {
+        message.warning("没有可导出的数据");
+        return;
+      }
+
+      const header = cols.map((c) => c.label).join(",");
+      const body = allRows
+        .map((row) =>
+          cols
+            .map((c) => {
+              const v = c.value(row);
+              const s = String(v ?? "");
+              const e = s.replace(/"/g, '""');
+              return `"${e}"`;
+            })
+            .join(",")
+        )
+        .join("\r\n");
+      const csv = "\uFEFF" + header + "\r\n" + body;
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `当日归因-购物(日汇总)-common_${dailyRangeParams.start_date}_${dailyRangeParams.end_date}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      message.success(`导出成功，共 ${allRows.length} 条`);
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : "导出失败，请缩小日期范围后重试");
+    } finally {
+      hideProgress();
+      setDailyExporting(false);
+    }
+  }, [dailyRangeParams, dailyBuyer, dailyChannel, dailyPlayer, fetchPost, dailyColumns]);
 
   const dailyTableQuery = useQuery<PagedData<AdAttributionShoppingDailyRow>>({
     queryKey: [
@@ -902,7 +1035,7 @@ function AdAttributionShoppingMetaCommon() {
               options={personnelOptions}
             />
             <Input placeholder="投手" value={dailyPlayer} onChange={(e) => setDailyPlayer(e.target.value)} style={{ width: 140 }} />
-            <Button onClick={exportDailyCSV}>导出</Button>
+            <Button loading={dailyExporting} onClick={exportDailyCSV}>导出</Button>
           </Space>
           <Button icon={<ReloadOutlined />} loading={dailyTableLoading} onClick={() => dailyTableQuery.refetch()}>
             刷新

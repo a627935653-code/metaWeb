@@ -9,6 +9,7 @@ import AdAttributionRegisterMeta from "@/view/ad-analysis/AdAttributionRegisterM
 import Personnel from "@/view/personnel";
 import AdManagement from "@/view/ad-management";
 import AdAttributionShoppingMetaCommon from "@/view/ad-analysis/AdAttributionShoppingMetaCommon";
+import AdAttributionShoppingMeta917 from "@/view/ad-analysis/AdAttributionShoppingMeta917";
 
 type MenuItem = Required<MenuProps>["items"][number];
 
@@ -54,6 +55,11 @@ export const RouteList: MenuItemType[] = [
         key: "AdAttributionShoppingMeta",
         label: "购物广告分析(首充)",
         component: <AdAttributionShoppingMeta />,
+      },
+      {
+        key: "AdAttributionShoppingMeta917",
+        label: "9/17广告购物分析(首充)",
+        component: <AdAttributionShoppingMeta917 />,
       },
       {
         key: "AdAttributionShoppingMetaCommon",
