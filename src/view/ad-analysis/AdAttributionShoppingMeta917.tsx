@@ -1,7 +1,7 @@
 import useFetch from "@/hooks/useFetch";
 import { ReloadOutlined } from "@ant-design/icons";
 import { useQuery } from "@tanstack/react-query";
-import { Button, DatePicker, Space, Table, Typography } from "antd";
+import { Button, DatePicker, Space, Table, Tooltip, Typography } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import dayjs from "dayjs";
 import { useEffect, useMemo, useState } from "react";
@@ -55,6 +55,8 @@ type AdShopping917DailyRow = {
   spend: number;
   register: number;
   activation: number;
+  attributedRegister: number;
+  attributedActivation: number;
   registerActivation: number;
   registerCost: number;
   activationCost: number;
@@ -144,6 +146,8 @@ function AdAttributionShoppingMeta917() {
           spend: item.spend ?? 0,
           register: item.register ?? item.registerActivation ?? 0,
           activation: item.activation ?? 0,
+          attributedRegister: item.attributedRegister ?? 0,
+          attributedActivation: item.attributedActivation ?? 0,
           registerActivation: item.registerActivation ?? item.register ?? 0,
           registerCost: item.registerCost ?? 0,
           activationCost: item.activationCost ?? 0,
@@ -285,8 +289,20 @@ function AdAttributionShoppingMeta917() {
         width: 110,
         align: "center" as const,
         onHeaderCell: headerRowSpan2,
-        render: (_value: unknown, record) =>
-          `${formatNumber(record.register)}/${formatNumber(record.activation)}`,
+        render: (_value: unknown, record) => {
+          const register = toNumber(record.register) || 0;
+          const activation = toNumber(record.activation) || 0;
+          const attributedRegister = toNumber(record.attributedRegister) || 0;
+          const attributedActivation = toNumber(record.attributedActivation) || 0;
+          const tooltipText = `${formatNumber(register - attributedRegister)}/${formatNumber(
+            activation - attributedActivation
+          )}`;
+          return (
+            <Tooltip title={tooltipText}>
+              <span>{`${formatNumber(register)}/${formatNumber(activation)}`}</span>
+            </Tooltip>
+          );
+        },
       },
       {
         title: "注册成本",

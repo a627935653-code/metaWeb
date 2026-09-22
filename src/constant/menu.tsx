@@ -10,6 +10,7 @@ import Personnel from "@/view/personnel";
 import AdManagement from "@/view/ad-management";
 import AdAttributionShoppingMetaCommon from "@/view/ad-analysis/AdAttributionShoppingMetaCommon";
 import AdAttributionShoppingMeta917 from "@/view/ad-analysis/AdAttributionShoppingMeta917";
+import FrontendEventCallback from "@/view/ad-analysis/FrontendEventCallback";
 
 type MenuItem = Required<MenuProps>["items"][number];
 
@@ -70,6 +71,11 @@ export const RouteList: MenuItemType[] = [
         key: "AdAttributionRegisterMeta",
         label: "注册广告分析(meta)",
         component: <AdAttributionRegisterMeta />,
+      },
+      {
+        key: "FrontendEventCallback",
+        label: "前端回传",
+        component: <FrontendEventCallback />,
       },
     ],
   },

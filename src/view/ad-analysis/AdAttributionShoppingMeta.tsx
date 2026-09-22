@@ -50,6 +50,8 @@ type AdAttributionShoppingDailyRow = {
   payUsers: number;
   newPayUsers: number;
   unAttributedNewPayUsers: number;
+  attributedRegisterPayUsers: number;
+  unAttributedRegisterPayUsers: number;
   payOrders: number;
   newPayOrders: number;
   payAmount: number;
@@ -132,6 +134,19 @@ type RegisterUserRow = {
   is_pay: boolean;
 };
 
+type UnAttributedNewPayUserRow = {
+  key: string;
+  user_id: string;
+  user_name: string;
+};
+
+type UnAttributedNewPayUsersContext = {
+  date: string;
+  account_ids?: string[];
+  channels?: string[];
+  player?: string;
+};
+
 type RegisterYesterdayRow = {
   key: string;
   user: string;
@@ -212,6 +227,7 @@ const ROAS_PAY_SUM_PATH = "/meta/roaspaysumContrastMeta";
 const PAY_ORDERS_DETAIL_PATH = "/meta/payOrdersListMeta";
 const NEW_PAY_USERS_DETAIL_PATH = "/meta/newPayUserListMeta";
 const NEW_PAY_USERS_SUM_PATH = "/meta/newPayUserListSumMeta";
+const UNATTRIBUTED_NEW_PAY_USERS_SUM_PATH = "/meta/unAttributedNewPayUserListSumMeta";
 const SAME_DAY_PAY_USERS_DETAIL_PATH = "/meta/sameDayPayUserListMeta";
 const REGISTER_USERS_DETAIL_PATH = "/meta/registerUserListMeta";
 const REGISTER_USERS_SUM_PATH = "/meta/registerUserListSumMeta";
@@ -360,6 +376,10 @@ function AdAttributionShoppingMeta() {
   const [registerUsersData, setRegisterUsersData] = useState<RegisterUserRow[]>([]);
   const [registerUsersPagination, setRegisterUsersPagination] = useState({ page: 1, limit: 20, total: 0 });
   const [registerUsersContext, setRegisterUsersContext] = useState<RegisterUsersContext | null>(null);
+  const [unAttributedNewPayUsersModalOpen, setUnAttributedNewPayUsersModalOpen] = useState(false);
+  const [unAttributedNewPayUsersData, setUnAttributedNewPayUsersData] = useState<UnAttributedNewPayUserRow[]>([]);
+  const [unAttributedNewPayUsersPagination, setUnAttributedNewPayUsersPagination] = useState({ page: 1, limit: 20, total: 0 });
+  const [unAttributedNewPayUsersContext, setUnAttributedNewPayUsersContext] = useState<UnAttributedNewPayUsersContext | null>(null);
   const [registerYesterdayModalOpen, setRegisterYesterdayModalOpen] = useState(false);
   const [registerYesterdayData, setRegisterYesterdayData] = useState<RegisterYesterdayRow[]>([]);
   const [registerYesterdayPagination, setRegisterYesterdayPagination] = useState({ page: 1, limit: 20, total: 0 });
@@ -415,6 +435,28 @@ function AdAttributionShoppingMeta() {
     setNewPayUsersData([]);
     setNewPayUsersSourceSummary([]);
     setNewPayUsersPagination((prev) => ({ ...prev, page: 1, total: 0 }));
+  }, []);
+
+  const openUnAttributedNewPayUsersModal = useCallback(
+    (record: AdAttributionShoppingDailyRow) => {
+      setUnAttributedNewPayUsersContext({
+        date: record.date,
+        account_ids: [...dailyBuyer],
+        channels: [...dailyChannel],
+        player: dailyPlayer,
+      });
+      setUnAttributedNewPayUsersData([]);
+      setUnAttributedNewPayUsersPagination((prev) => ({ ...prev, page: 1, total: 0 }));
+      setUnAttributedNewPayUsersModalOpen(true);
+    },
+    [dailyBuyer, dailyChannel, dailyPlayer]
+  );
+
+  const closeUnAttributedNewPayUsersModal = useCallback(() => {
+    setUnAttributedNewPayUsersModalOpen(false);
+    setUnAttributedNewPayUsersContext(null);
+    setUnAttributedNewPayUsersData([]);
+    setUnAttributedNewPayUsersPagination((prev) => ({ ...prev, page: 1, total: 0 }));
   }, []);
 
   const openSameDayPayUsersModal = useCallback((record: AdAttributionShoppingRow) => {
@@ -548,6 +590,32 @@ function AdAttributionShoppingMeta() {
       dataIndex: "unAttributedNewPayUsers",
       key: "unAttributedNewPayUsers",
       width: 180,
+      render: (v: number, record) => {
+        const num = toNumber(v) || 0;
+        if (num <= 0) return formatNumber(v);
+        return (
+          <Button
+            type="link"
+            style={{ padding: 0, height: "auto", lineHeight: 1.2, borderBottom: "2px solid #22c55e", borderRadius: 0 }}
+            onClick={() => openUnAttributedNewPayUsersModal(record)}
+          >
+            {formatNumber(v)}
+          </Button>
+        );
+      },
+    },
+    {
+      title: "归因注册数充值用户数",
+      dataIndex: "attributedRegisterPayUsers",
+      key: "attributedRegisterPayUsers",
+      width: 180,
+      render: (v: number) => formatNumber(v),
+    },
+    {
+      title: "未归因注册数充值用户数",
+      dataIndex: "unAttributedRegisterPayUsers",
+      key: "unAttributedRegisterPayUsers",
+      width: 200,
       render: (v: number) => formatNumber(v),
     },
     // { title: "充值笔数", dataIndex: "payOrders", key: "payOrders", width: 120, render: (v: number) => formatNumber(v) },
@@ -1188,6 +1256,24 @@ function AdAttributionShoppingMeta() {
     []
   );
 
+  const unAttributedNewPayUsersColumns: ColumnsType<UnAttributedNewPayUserRow> = useMemo(
+    () => [
+      {
+        title: "用户id",
+        dataIndex: "user_id",
+        key: "user_id",
+        width: 220,
+        render: (_value: string, record) => (
+          <div>
+            <div>{record.user_id}</div>
+            <div style={{ color: "#ef4444", marginTop: 4 }}>{record.user_name}</div>
+          </div>
+        ),
+      },
+    ],
+    []
+  );
+
   const registerYesterdayColumns: ColumnsType<RegisterYesterdayRow> = useMemo(
     () => {
       const renderTime = (value: string) => <span style={{ whiteSpace: "pre-line" }}>{value}</span>;
@@ -1341,6 +1427,65 @@ function AdAttributionShoppingMeta() {
       total: newPayUsersQuery.data.total,
     }));
   }, [newPayUsersQuery.data]);
+
+  const unAttributedNewPayUsersQuery = useQuery<PagedData<UnAttributedNewPayUserRow>>({
+    queryKey: [
+      "meta-unattributed-new-pay-user-list-sum-meta",
+      unAttributedNewPayUsersContext?.date || "",
+      unAttributedNewPayUsersContext?.account_ids || [],
+      unAttributedNewPayUsersContext?.channels || [],
+      unAttributedNewPayUsersContext?.player || "",
+      unAttributedNewPayUsersPagination.page,
+      unAttributedNewPayUsersPagination.limit,
+    ],
+    queryFn: async () => {
+      const res = await fetchPost({
+        path: UNATTRIBUTED_NEW_PAY_USERS_SUM_PATH,
+        body: JSON.stringify({
+          date: unAttributedNewPayUsersContext?.date,
+          account_ids: unAttributedNewPayUsersContext?.account_ids?.length
+            ? unAttributedNewPayUsersContext.account_ids
+            : undefined,
+          channels: unAttributedNewPayUsersContext?.channels?.length ? unAttributedNewPayUsersContext.channels : undefined,
+          player: unAttributedNewPayUsersContext?.player || undefined,
+          page: unAttributedNewPayUsersPagination.page,
+          limit: unAttributedNewPayUsersPagination.limit,
+        }),
+      });
+      if (res?.code === 0 && res?.data && unAttributedNewPayUsersContext) {
+        const rawList = Array.isArray(res.data) ? res.data : res.data?.list || res.data?.data || [];
+        const list = rawList.map((item: any, index: number) => ({
+          key: item?.key || item?.uid || `${unAttributedNewPayUsersContext.date}_${item?.user_id ?? index + 1}`,
+          user_id: String(item?.user_id ?? item?.uid ?? "-"),
+          user_name: String(item?.user_name ?? item?.nick_name ?? "-"),
+        }));
+        return {
+          list,
+          page: res.page ?? unAttributedNewPayUsersPagination.page,
+          limit: res.limit ?? unAttributedNewPayUsersPagination.limit,
+          total: res.total ?? res.data?.total ?? rawList.length,
+        };
+      }
+      return {
+        list: [],
+        page: unAttributedNewPayUsersPagination.page,
+        limit: unAttributedNewPayUsersPagination.limit,
+        total: 0,
+      };
+    },
+    enabled: unAttributedNewPayUsersModalOpen && !!unAttributedNewPayUsersContext,
+  });
+
+  useEffect(() => {
+    if (!unAttributedNewPayUsersQuery.data) return;
+    setUnAttributedNewPayUsersData(unAttributedNewPayUsersQuery.data.list);
+    setUnAttributedNewPayUsersPagination((prev) => ({
+      ...prev,
+      page: unAttributedNewPayUsersQuery.data.page,
+      limit: unAttributedNewPayUsersQuery.data.limit,
+      total: unAttributedNewPayUsersQuery.data.total,
+    }));
+  }, [unAttributedNewPayUsersQuery.data]);
 
   const sameDayPayUsersQuery = useQuery<PagedData<SameDayPayUserRow>>({
     queryKey: [
@@ -1524,6 +1669,8 @@ function AdAttributionShoppingMeta() {
   const tableLoading = detailTableQuery.isLoading || detailTableQuery.isFetching;
   const payOrdersLoading = payOrdersQuery.isLoading || payOrdersQuery.isFetching;
   const newPayUsersLoading = newPayUsersQuery.isLoading || newPayUsersQuery.isFetching;
+  const unAttributedNewPayUsersLoading =
+    unAttributedNewPayUsersQuery.isLoading || unAttributedNewPayUsersQuery.isFetching;
   const sameDayPayUsersLoading = sameDayPayUsersQuery.isLoading || sameDayPayUsersQuery.isFetching;
   const registerUsersLoading = registerUsersQuery.isLoading || registerUsersQuery.isFetching;
   const registerYesterdayLoading = registerYesterdayQuery.isLoading || registerYesterdayQuery.isFetching;
@@ -1753,6 +1900,42 @@ function AdAttributionShoppingMeta() {
             pageSizeOptions: ["10", "20", "50", "100"],
             onChange: (page, pageSize) => {
               setNewPayUsersPagination((prev) => ({ ...prev, page, limit: pageSize }));
+            },
+          }}
+        />
+      </Modal>
+
+      <Modal
+        title={`未归因新客充值用户明细（日汇总 / ${unAttributedNewPayUsersContext?.date || "-"}）`}
+        open={unAttributedNewPayUsersModalOpen}
+        onCancel={closeUnAttributedNewPayUsersModal}
+        footer={null}
+        width={520}
+        destroyOnClose
+      >
+        <div style={{ marginBottom: 12, display: "flex", justifyContent: "flex-end" }}>
+          <Button
+            icon={<ReloadOutlined />}
+            loading={unAttributedNewPayUsersLoading}
+            onClick={() => unAttributedNewPayUsersQuery.refetch()}
+          >
+            刷新
+          </Button>
+        </div>
+        <Table
+          columns={unAttributedNewPayUsersColumns}
+          dataSource={unAttributedNewPayUsersData}
+          rowKey={(record) => record.key}
+          loading={unAttributedNewPayUsersLoading}
+          scroll={{ y: 520 }}
+          pagination={{
+            current: unAttributedNewPayUsersPagination.page,
+            pageSize: unAttributedNewPayUsersPagination.limit,
+            total: unAttributedNewPayUsersPagination.total || unAttributedNewPayUsersData.length,
+            showSizeChanger: true,
+            pageSizeOptions: ["10", "20", "50", "100"],
+            onChange: (page, pageSize) => {
+              setUnAttributedNewPayUsersPagination((prev) => ({ ...prev, page, limit: pageSize }));
             },
           }}
         />
