@@ -9,6 +9,7 @@ import AdAttributionRegisterMeta from "@/view/ad-analysis/AdAttributionRegisterM
 import Personnel from "@/view/personnel";
 import AdManagement from "@/view/ad-management";
 import AdAttributionShoppingMetaCommon from "@/view/ad-analysis/AdAttributionShoppingMetaCommon";
+import AdAttributionShoppingMetaNewFull from "@/view/ad-analysis/AdAttributionShoppingMetaNewFull";
 import AdAttributionShoppingMeta917 from "@/view/ad-analysis/AdAttributionShoppingMeta917";
 import FrontendEventCallback from "@/view/ad-analysis/FrontendEventCallback";
 
@@ -66,6 +67,11 @@ export const RouteList: MenuItemType[] = [
         key: "AdAttributionShoppingMetaCommon",
         label: "购物广告分析(全量)",
         component: <AdAttributionShoppingMetaCommon />,
+      },
+      {
+        key: "AdAttributionShoppingMetaNewFull",
+        label: "新全量统计",
+        component: <AdAttributionShoppingMetaNewFull />,
       },
       {
         key: "AdAttributionRegisterMeta",

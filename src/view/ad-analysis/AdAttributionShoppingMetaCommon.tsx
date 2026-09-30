@@ -2,12 +2,9 @@ import { Button, DatePicker, Input, Modal, Select, Space, Table, Typography, mes
 import { ReloadOutlined } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
 import { useQuery } from "@tanstack/react-query";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import useFetch from "@/hooks/useFetch";
 import { useMetaPersonnelOptions, useMetaPlatformOptions } from "@/hooks/useMetaOptions";
-import { userInfoAtom } from "@/store/main";
-import { useAtomValue } from "jotai";
-
 type AdAttributionShoppingRow = {
   key: string;
   ad_name: string;
@@ -83,6 +80,40 @@ type PayOrderRow = {
   pay_time: string;
 };
 
+type PayAmountRow = {
+  key: string;
+  user_id: string;
+  user_name: string;
+  click_time: string;
+  clicked_ad: string;
+  pay_time: string;
+  pay_amount: number;
+};
+
+type PayAmountListContext = {
+  date: string;
+  ad_id?: string;
+  account_ids?: string[];
+  channels?: string[];
+  ad_types?: number[];
+  player?: string;
+};
+
+const mapPayAmountApiRow = (item: any, ctx: PayAmountListContext, index: number): PayAmountRow => ({
+  key: item?.key || item?.id || `${ctx.date}_${item?.user_id ?? "u"}_${index + 1}`,
+  user_id: String(item?.user_id ?? item?.uid ?? "-"),
+  user_name: String(item?.user_name ?? ""),
+  click_time: item?.click_time ?? "-",
+  clicked_ad: item?.clicked_ad ?? item?.ad_id ?? "-",
+  pay_time: item?.pay_time ?? "-",
+  pay_amount: toNumber(item?.pay_amount ?? item?.amount) || 0,
+});
+
+const csvCell = (value: unknown) => {
+  const s = String(value ?? "").replace(/"/g, '""');
+  return `"${s}"`;
+};
+
 type NewPayUserRow = {
   key: string;
   user_id: string;
@@ -146,22 +177,9 @@ const normalizeRange = (range: any) => {
 const ROAS_PAY_PATH = "/meta/roaspayContrastMetaCommon";
 const ROAS_PAY_SUM_PATH = "/meta/roaspaysumContrastMetaCommon";
 const PAY_ORDERS_DETAIL_PATH = "/meta/payOrdersListMetaCommon";
+const PAY_AMOUNT_DETAIL_PATH = "/meta/payAmountListMetaCommon";
 const NEW_PAY_USERS_DETAIL_PATH = "/meta/newPayUserListMetaCommon";
 const REGISTER_USERS_DETAIL_PATH = "/meta/registerUserListMetaCommon";
-const ADMIN_ONLY_ROAS_COLUMNS = new Set([
-  "roas",
-  "d0Roas",
-  "d3Roas",
-  "d7Roas",
-  "d14Roas",
-]);
-const ROAS_EXPORT_LABEL_TO_KEY: Record<string, string> = {
-  ROAS: "roas",
-  D0ROAS: "d0Roas",
-  D3ROAS: "d3Roas",
-  D7ROAS: "d7Roas",
-  D14ROAS: "d14Roas",
-};
 const DAILY_EXPORT_RETRY = 3;
 
 type DailyExportCol = {
@@ -242,10 +260,16 @@ const enumerateDatesDesc = (startDate: string, endDate: string): string[] => {
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const payAmountLinkStyle: CSSProperties = {
+  padding: 0,
+  height: "auto",
+  lineHeight: 1.2,
+  borderBottom: "2px solid #22c55e",
+  borderRadius: 0,
+};
+
 function AdAttributionShoppingMetaCommon() {
   const { fetchPost } = useFetch();
-  const userInfo = useAtomValue(userInfoAtom);
-  const isAdmin = Number((userInfo as any)?.user?.is_admin) === 1;
   const { RangePicker } = DatePicker;
   const { Title } = Typography;
   const [dailyRange, setDailyRange] = useState<any>(null);
@@ -276,6 +300,11 @@ function AdAttributionShoppingMetaCommon() {
   const [registerUsersIpRepeat, setRegisterUsersIpRepeat] = useState("");
   const [registerUsersPagination, setRegisterUsersPagination] = useState({ page: 1, limit: 20, total: 0 });
   const [registerUsersContext, setRegisterUsersContext] = useState<{ ad_id: string; date: string } | null>(null);
+  const [payAmountModalOpen, setPayAmountModalOpen] = useState(false);
+  const [payAmountData, setPayAmountData] = useState<PayAmountRow[]>([]);
+  const [payAmountPagination, setPayAmountPagination] = useState({ page: 1, limit: 20, total: 0 });
+  const [payAmountContext, setPayAmountContext] = useState<PayAmountListContext | null>(null);
+  const [payAmountExporting, setPayAmountExporting] = useState(false);
 
   const openPayOrdersModal = useCallback((record: AdAttributionShoppingRow) => {
     setPayOrdersContext({ ad_id: record.ad_id, date: record.date });
@@ -323,6 +352,58 @@ function AdAttributionShoppingMetaCommon() {
     setRegisterUsersPagination((prev) => ({ ...prev, page: 1, total: 0 }));
   }, []);
 
+  const openPayAmountModalFromDaily = useCallback(
+    (record: AdAttributionShoppingDailyRow) => {
+      setPayAmountContext({
+        date: record.date,
+        account_ids: dailyBuyer.length ? dailyBuyer : undefined,
+        channels: dailyChannel.length ? dailyChannel : undefined,
+        player: dailyPlayer || undefined,
+      });
+      setPayAmountData([]);
+      setPayAmountPagination((prev) => ({ ...prev, page: 1, total: 0 }));
+      setPayAmountModalOpen(true);
+    },
+    [dailyBuyer, dailyChannel, dailyPlayer]
+  );
+
+  const openPayAmountModalFromDetail = useCallback(
+    (record: AdAttributionShoppingRow) => {
+      setPayAmountContext({
+        date: record.date,
+        ad_id: record.ad_id,
+        account_ids: buyer.length ? buyer : undefined,
+        channels: channel.length ? channel : undefined,
+        ad_types: adType ? [Number(adType)] : undefined,
+        player: player || undefined,
+      });
+      setPayAmountData([]);
+      setPayAmountPagination((prev) => ({ ...prev, page: 1, total: 0 }));
+      setPayAmountModalOpen(true);
+    },
+    [adType, buyer, channel, player]
+  );
+
+  const closePayAmountModal = useCallback(() => {
+    setPayAmountModalOpen(false);
+    setPayAmountContext(null);
+    setPayAmountData([]);
+    setPayAmountPagination((prev) => ({ ...prev, page: 1, total: 0 }));
+  }, []);
+
+  const renderPayAmountCell = useCallback(
+    (v: number, onOpen: () => void) => {
+      const num = toNumber(v) || 0;
+      if (num <= 0) return usd(v);
+      return (
+        <Button type="link" style={payAmountLinkStyle} onClick={onOpen}>
+          {usd(v)}
+        </Button>
+      );
+    },
+    []
+  );
+
   const personnelPlatformParam = useMemo(() => {
     const raw = [dailyChannel, channel].flat();
     const normalized = raw.map((v) => String(v).trim()).filter(Boolean).map((v) => v.toLowerCase());
@@ -341,7 +422,13 @@ function AdAttributionShoppingMetaCommon() {
     { title: "新客充值笔数", dataIndex: "newPayOrders", key: "newPayOrders", width: 140, render: (v: number) => formatNumber(v) },
     { title: "充值笔数", dataIndex: "payOrders", key: "payOrders", width: 120, render: (v: number) => formatNumber(v) },
     { title: "新客充值金额", dataIndex: "newPayAmount", key: "newPayAmount", width: 140, render: (v: number) => usd(v) },
-    { title: "总产值金额", dataIndex: "payAmount", key: "payAmount", width: 120, render: (v: number) => usd(v) },
+    {
+      title: "总产值金额",
+      dataIndex: "payAmount",
+      key: "payAmount",
+      width: 120,
+      render: (v: number, record) => renderPayAmountCell(v, () => openPayAmountModalFromDaily(record)),
+    },
     { title: "新客充值转化率", dataIndex: "newPayRate", key: "newPayRate", width: 140, render: (v: number) => pct(v) },
     { title: "CPA(注册)", dataIndex: "cpaRegister", key: "cpaRegister", width: 120, render: (v: number) => usd(v) },
     { title: "CPA(充值)", dataIndex: "cpaPay", key: "cpaPay", width: 120, render: (v: number) => usd(v) },
@@ -353,11 +440,7 @@ function AdAttributionShoppingMetaCommon() {
     { title: "D3ROAS", dataIndex: "d3Roas", key: "d3Roas", width: 100, render: (v: number) => pct(v) },
     { title: "D7ROAS", dataIndex: "d7Roas", key: "d7Roas", width: 100, render: (v: number) => pct(v) },
     { title: "D14ROAS", dataIndex: "d14Roas", key: "d14Roas", width: 110, render: (v: number) => pct(v) },
-  ].filter(
-    (column) =>
-      isAdmin ||
-      !ADMIN_ONLY_ROAS_COLUMNS.has(String((column as any).dataIndex))
-  );
+  ];
 
   const detailColumns: ColumnsType<AdAttributionShoppingRow> = [
     { title: "广告名称", dataIndex: "ad_name", key: "ad_name", width: 160, fixed: "left" },
@@ -417,7 +500,13 @@ function AdAttributionShoppingMetaCommon() {
       },
     },
     { title: "新客充值当日总金额", dataIndex: "newPayAmount", key: "newPayAmount", width: 160, render: (v: number) => usd(v) },
-    { title: "总产值金额", dataIndex: "payAmount", key: "payAmount", width: 120, render: (v: number) => usd(v) },
+    {
+      title: "总产值金额",
+      dataIndex: "payAmount",
+      key: "payAmount",
+      width: 120,
+      render: (v: number, record) => renderPayAmountCell(v, () => openPayAmountModalFromDetail(record)),
+    },
     { title: "新客充值转化率", dataIndex: "newPayRate", key: "newPayRate", width: 140, render: (v: number) => pct(v) },
     {
       title: "注册数",
@@ -454,11 +543,7 @@ function AdAttributionShoppingMetaCommon() {
     { title: "D3ROAS", dataIndex: "d3Roas", key: "d3Roas", width: 100, render: (v: number) => pct(v) },
     { title: "D7ROAS", dataIndex: "d7Roas", key: "d7Roas", width: 100, render: (v: number) => pct(v) },
     { title: "D14ROAS", dataIndex: "d14Roas", key: "d14Roas", width: 110, render: (v: number) => pct(v) },
-  ].filter(
-    (column) =>
-      isAdmin ||
-      !ADMIN_ONLY_ROAS_COLUMNS.has(String((column as any).dataIndex))
-  );
+  ];
 
   const exportCSV = useCallback(() => {
     const cols = [
@@ -484,13 +569,7 @@ function AdAttributionShoppingMetaCommon() {
       { label: "D3ROAS", value: (r: AdAttributionShoppingRow) => pct(r.d3Roas) },
       { label: "D7ROAS", value: (r: AdAttributionShoppingRow) => pct(r.d7Roas) },
       { label: "D14ROAS", value: (r: AdAttributionShoppingRow) => pct(r.d14Roas) },
-    ].filter(
-      (column) =>
-        isAdmin ||
-        !ADMIN_ONLY_ROAS_COLUMNS.has(
-          ROAS_EXPORT_LABEL_TO_KEY[String((column as any).label)] || ""
-        )
-    );
+    ];
     const header = cols.map((c) => c.label).join(",");
     const body = tableData
       .map((row) =>
@@ -514,7 +593,7 @@ function AdAttributionShoppingMetaCommon() {
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
-  }, [tableData, isAdmin]);
+  }, [tableData]);
 
   const dailyRangeParams = useMemo(() => normalizeRange(dailyRange), [dailyRange]);
   const detailRangeParams = useMemo(() => normalizeRange(range), [range]);
@@ -777,6 +856,48 @@ function AdAttributionShoppingMetaCommon() {
     []
   );
 
+  const payAmountColumns: ColumnsType<PayAmountRow> = useMemo(
+    () => [
+      {
+        title: "用户 id",
+        dataIndex: "user_id",
+        key: "user_id",
+        width: 140,
+        render: (v: string, record) => (
+          <div>
+            <div>{v}</div>
+            {record.user_name ? (
+              <div style={{ color: "#6b7280", marginTop: 4, fontSize: 12 }}>{record.user_name}</div>
+            ) : null}
+          </div>
+        ),
+      },
+      {
+        title: "点击广告时间",
+        dataIndex: "click_time",
+        key: "click_time",
+        width: 220,
+        render: (v: string) => <span style={{ whiteSpace: "pre-line" }}>{v || "-"}</span>,
+      },
+      { title: "点击的广告", dataIndex: "clicked_ad", key: "clicked_ad", width: 220, ellipsis: true },
+      {
+        title: "充值时间",
+        dataIndex: "pay_time",
+        key: "pay_time",
+        width: 220,
+        render: (v: string) => <span style={{ whiteSpace: "pre-line" }}>{v || "-"}</span>,
+      },
+      {
+        title: "有效充值金额",
+        dataIndex: "pay_amount",
+        key: "pay_amount",
+        width: 130,
+        render: (v: number) => usd(v),
+      },
+    ],
+    []
+  );
+
   const newPayUsersColumns: ColumnsType<NewPayUserRow> = useMemo(
     () => [
       {
@@ -867,6 +988,147 @@ function AdAttributionShoppingMetaCommon() {
       total: payOrdersQuery.data.total,
     }));
   }, [payOrdersQuery.data]);
+
+  const payAmountQuery = useQuery<PagedData<PayAmountRow>>({
+    queryKey: [
+      "meta-pay-amount-list-contrast-meta-common",
+      payAmountContext?.date || "",
+      payAmountContext?.ad_id || "",
+      payAmountContext?.account_ids?.join(",") || "",
+      payAmountContext?.channels?.join(",") || "",
+      payAmountContext?.ad_types?.join(",") || "",
+      payAmountContext?.player || "",
+      payAmountPagination.page,
+      payAmountPagination.limit,
+    ],
+    queryFn: async () => {
+      const res = await fetchPost({
+        path: PAY_AMOUNT_DETAIL_PATH,
+        body: JSON.stringify({
+          date: payAmountContext?.date,
+          ad_id: payAmountContext?.ad_id,
+          account_ids: payAmountContext?.account_ids,
+          channels: payAmountContext?.channels,
+          ad_types: payAmountContext?.ad_types,
+          player: payAmountContext?.player,
+          page: payAmountPagination.page,
+          limit: payAmountPagination.limit,
+        }),
+      });
+      if (res?.code === 0 && res?.data && payAmountContext) {
+        const rawList = Array.isArray(res.data) ? res.data : res.data?.list || res.data?.data || [];
+        const list = rawList.map((item: any, index: number) => mapPayAmountApiRow(item, payAmountContext, index));
+        return {
+          list,
+          page: res.page ?? payAmountPagination.page,
+          limit: res.limit ?? payAmountPagination.limit,
+          total: res.total ?? res.data?.total ?? rawList.length,
+        };
+      }
+      if (res?.code !== 0 && res?.msg) {
+        message.error(res.msg);
+      }
+      return { list: [], page: payAmountPagination.page, limit: payAmountPagination.limit, total: 0 };
+    },
+    enabled: payAmountModalOpen && !!payAmountContext,
+  });
+
+  useEffect(() => {
+    if (!payAmountQuery.data) return;
+    setPayAmountData(payAmountQuery.data.list);
+    setPayAmountPagination((prev) => ({
+      ...prev,
+      page: payAmountQuery.data.page,
+      limit: payAmountQuery.data.limit,
+      total: payAmountQuery.data.total,
+    }));
+  }, [payAmountQuery.data]);
+
+  const exportPayAmountCSV = useCallback(async () => {
+    if (!payAmountContext) {
+      message.warning("请先打开总产值明细");
+      return;
+    }
+    setPayAmountExporting(true);
+    const hideProgress = message.loading("正在导出总产值明细...", 0);
+    try {
+      const limit = 100;
+      let page = 1;
+      let total = 0;
+      const allRows: PayAmountRow[] = [];
+
+      while (true) {
+        const res = await fetchPost({
+          path: PAY_AMOUNT_DETAIL_PATH,
+          body: JSON.stringify({
+            date: payAmountContext.date,
+            ad_id: payAmountContext.ad_id,
+            account_ids: payAmountContext.account_ids,
+            channels: payAmountContext.channels,
+            ad_types: payAmountContext.ad_types,
+            player: payAmountContext.player,
+            page,
+            limit,
+          }),
+        });
+        if (!res || res.code !== 0) {
+          throw new Error(res?.msg || "拉取明细失败");
+        }
+        const rawList = Array.isArray(res.data) ? res.data : res.data?.list || res.data?.data || [];
+        if (page === 1) {
+          total = Number(res.total ?? res.data?.total ?? rawList.length) || 0;
+        }
+        if (!rawList.length) {
+          break;
+        }
+        rawList.forEach((item: any, index: number) => {
+          allRows.push(mapPayAmountApiRow(item, payAmountContext, allRows.length + index));
+        });
+        if (allRows.length >= total || rawList.length < limit) {
+          break;
+        }
+        page += 1;
+      }
+
+      if (!allRows.length) {
+        message.warning("没有可导出的数据");
+        return;
+      }
+
+      const formatTimeForCsv = (t: string) => t.replace(/\r?\n/g, " ");
+      const cols: { label: string; value: (r: PayAmountRow) => string }[] = [
+        {
+          label: "用户 id",
+          value: (r) => (r.user_name ? `${r.user_id}(${r.user_name})` : r.user_id),
+        },
+        { label: "点击广告时间", value: (r) => formatTimeForCsv(r.click_time) },
+        { label: "点击的广告", value: (r) => r.clicked_ad },
+        { label: "充值时间", value: (r) => formatTimeForCsv(r.pay_time) },
+        { label: "有效充值金额", value: (r) => usd(r.pay_amount) },
+      ];
+      const header = cols.map((c) => c.label).join(",");
+      const body = allRows
+        .map((row) => cols.map((c) => csvCell(c.value(row))).join(","))
+        .join("\r\n");
+      const csv = "\uFEFF" + header + "\r\n" + body;
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const adPart = payAmountContext.ad_id ? `_${payAmountContext.ad_id}` : "";
+      a.download = `总产值明细_${payAmountContext.date}${adPart}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      message.success(`导出成功，共 ${allRows.length} 条`);
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : "导出失败");
+    } finally {
+      hideProgress();
+      setPayAmountExporting(false);
+    }
+  }, [fetchPost, payAmountContext]);
 
   const newPayUsersQuery = useQuery<PagedData<NewPayUserRow>>({
     queryKey: [
@@ -1004,6 +1266,7 @@ function AdAttributionShoppingMetaCommon() {
   const dailyTableLoading = dailyTableQuery.isLoading || dailyTableQuery.isFetching;
   const tableLoading = detailTableQuery.isLoading || detailTableQuery.isFetching;
   const payOrdersLoading = payOrdersQuery.isLoading || payOrdersQuery.isFetching;
+  const payAmountLoading = payAmountQuery.isLoading || payAmountQuery.isFetching;
   const newPayUsersLoading = newPayUsersQuery.isLoading || newPayUsersQuery.isFetching;
   const registerUsersLoading = registerUsersQuery.isLoading || registerUsersQuery.isFetching;
 
@@ -1128,6 +1391,43 @@ function AdAttributionShoppingMetaCommon() {
           />
         </div>
       </div>
+
+      <Modal
+        title={`总产值明细（${payAmountContext?.date || "-"}${payAmountContext?.ad_id ? ` / ${payAmountContext.ad_id}` : ""}）`}
+        open={payAmountModalOpen}
+        onCancel={closePayAmountModal}
+        footer={null}
+        width={980}
+        destroyOnClose
+      >
+        <div style={{ marginBottom: 12, display: "flex", justifyContent: "flex-end" }}>
+          <Space>
+            <Button loading={payAmountExporting} onClick={exportPayAmountCSV}>
+              导出
+            </Button>
+            <Button icon={<ReloadOutlined />} loading={payAmountLoading} onClick={() => payAmountQuery.refetch()}>
+              刷新
+            </Button>
+          </Space>
+        </div>
+        <Table
+          columns={payAmountColumns}
+          dataSource={payAmountData}
+          rowKey={(record) => record.key}
+          loading={payAmountLoading}
+          scroll={{ x: 920, y: 520 }}
+          pagination={{
+            current: payAmountPagination.page,
+            pageSize: payAmountPagination.limit,
+            total: payAmountPagination.total || payAmountData.length,
+            showSizeChanger: true,
+            pageSizeOptions: ["10", "20", "50", "100"],
+            onChange: (page, pageSize) => {
+              setPayAmountPagination((prev) => ({ ...prev, page, limit: pageSize }));
+            },
+          }}
+        />
+      </Modal>
 
       <Modal
         title={`充值明细（${payOrdersContext?.ad_id || "-"} / ${payOrdersContext?.date || "-"}）`}
