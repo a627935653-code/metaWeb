@@ -2,7 +2,7 @@ import useFetch from "@/hooks/useFetch";
 import { useMetaPersonnelOptions, useMetaPlatformOptions } from "@/hooks/useMetaOptions";
 import { QuestionCircleOutlined, ReloadOutlined } from "@ant-design/icons";
 import { useQuery } from "@tanstack/react-query";
-import { Button, DatePicker, Input, Select, Table, Tooltip, Typography, message } from "antd";
+import { Button, Collapse, DatePicker, Input, Select, Table, Tooltip, Typography, message } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import dayjs from "dayjs";
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
@@ -54,7 +54,7 @@ const FIELD_TIPS: Record<string, string> = {
   newPayRate: "新客充值用户数 ÷ 注册数",
   cpaNewPay: "广告花费 ÷ 新客充值用户数",
   newPayAmount: "当日注册数用户的全部成功充值金额合计（不限充值时间与点击时间关系）",
-  returningAdPayAmount: "老客广告归因产生的充值",
+  returningAdPayAmount: "老客广告归因充值金额（见页面「统计口径总说明」）",
   totalAdPayAmount: "新客 + 老客",
   d0NewPayAmount: "新客获客当天充值",
   d0CumulativeRoas: "D0累计充值 ÷ 广告花费",
@@ -785,6 +785,71 @@ function AdAttributionShoppingMetaNewFull() {
         新全量统计
       </Title>
 
+      <Collapse
+        style={{ marginTop: 16 }}
+        items={[
+          {
+            key: "stat-spec",
+            label: "统计口径总说明",
+            children: (
+              <div style={{ color: "rgba(0,0,0,0.88)", fontSize: 14, lineHeight: 1.75, maxWidth: 960 }}>
+                <p style={{ margin: "0 0 12px" }}>
+                  所有时间统一使用洛杉矶时区 <strong>America/Los_Angeles</strong>。
+                </p>
+                <p style={{ margin: "0 0 8px" }}>后台同时包含两种统计口径：</p>
+                <ul style={{ margin: "0 0 12px", paddingLeft: 22 }}>
+                  <li>
+                    <strong>新客指标及 D0/D3 等周期指标</strong>：按照广告注册用户 Cohort 统计。
+                  </li>
+                  <li>
+                    <strong>老客广告归因充值</strong>：按照最终广告点击后 168 小时归因。
+                  </li>
+                </ul>
+                <p style={{ margin: "0 0 16px" }}>
+                  两种口径用途不同：前者用于观察一批注册用户的长期价值，后者用于观察广告对已注册用户充值的带动效果。
+                </p>
+
+                <Title level={5} style={{ margin: "0 0 8px", fontSize: 15 }}>
+                  新客指标
+                </Title>
+                <p style={{ margin: "0 0 8px" }}>
+                  以下四个指标均以该日期的「注册数」为固定用户范围。用户一旦进入该日期的注册人数，后续无论什么时候完成首充，数据都会回填到原注册日期，因此历史数据会持续变化。
+                </p>
+                <ol style={{ margin: "0 0 16px", paddingLeft: 22 }}>
+                  <li>新客充值用户数</li>
+                  <li>新客充值转化率</li>
+                  <li>CPA（新客充值）</li>
+                  <li>新客充值金额</li>
+                </ol>
+
+                <Title level={5} style={{ margin: "0 0 8px", fontSize: 15 }}>
+                  老客广告归因充值
+                </Title>
+                <p style={{ margin: "0 0 8px" }}>
+                  <strong>老客广告归因充值金额</strong>
+                </p>
+                <ol style={{ margin: "0 0 16px", paddingLeft: 22 }}>
+                  <li>
+                    用户在最终广告点击前已经完成注册，并在该次点击后 7×24 小时（168 小时）内产生的充值。无论该笔是否为首次充值，均计入老客广告归因充值金额。
+                  </li>
+                  <li>充值前存在多次广告点击时，归因到距离充值时间最近的一次点击。</li>
+                  <li>归因日期按照广告点击日期统计，不按照充值日期统计。</li>
+                  <li>超过最终广告点击 168 小时的充值不计入。</li>
+                  <li>每笔充值在老客广告归因口径中只能归因给一条广告。</li>
+                </ol>
+
+                <Title level={5} style={{ margin: "0 0 8px", fontSize: 15 }}>
+                  D0/D3 周期指标
+                </Title>
+                <p style={{ margin: 0 }}>
+                  D0、D3 以及后续 D7、D15、D30 指标，均以该日期的注册用户为固定统计范围，不受用户后续点击其他广告影响。
+                </p>
+              </div>
+            ),
+          },
+        ]}
+      />
+
       <div style={{ marginTop: 16, display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
         <RangePicker value={dailyRange} onChange={(v) => setDailyRange(v)} />
         <Select
@@ -821,22 +886,9 @@ function AdAttributionShoppingMetaNewFull() {
       </div>
 
       <div style={{ marginTop: 16 }}>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "baseline",
-            gap: 12,
-            flexWrap: "wrap",
-            marginBottom: 12,
-          }}
-        >
-          <Title level={5} style={{ margin: 0 }}>
-            日汇总
-          </Title>
-          <span style={{ color: "#8c8c8c", fontSize: 13, lineHeight: 1.5 }}>
-            新客充值金额/用户数按注册数用户统计全部成功充值；老客广告归因充值、总广告归因充值中老客部分仍只统计最终点击广告7*24以内的数据
-          </span>
-        </div>
+        <Title level={5} style={{ margin: "0 0 12px" }}>
+          日汇总
+        </Title>
         <Table<NewFullDailyRow>
           columns={columns}
           dataSource={tableData}
