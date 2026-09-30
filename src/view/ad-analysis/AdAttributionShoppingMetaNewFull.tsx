@@ -50,10 +50,10 @@ const FIELD_TIPS: Record<string, string> = {
   date: "获客日期",
   spend: "当日广告消耗",
   register: "广告归因注册人数",
-  newPayUsers: "完成首充的新客人数",
+  newPayUsers: "当日注册数用户中，有过成功充值的去重人数（不限充值时间与点击时间关系）",
   newPayRate: "新客充值用户数 ÷ 注册数",
   cpaNewPay: "广告花费 ÷ 新客充值用户数",
-  newPayAmount: "广告新客产生的充值",
+  newPayAmount: "当日注册数用户的全部成功充值金额合计（不限充值时间与点击时间关系）",
   returningAdPayAmount: "老客广告归因产生的充值",
   totalAdPayAmount: "新客 + 老客",
   d0NewPayAmount: "新客获客当天充值",
@@ -821,9 +821,22 @@ function AdAttributionShoppingMetaNewFull() {
       </div>
 
       <div style={{ marginTop: 16 }}>
-        <Title level={5} style={{ margin: "0 0 12px" }}>
-          日汇总
-        </Title>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "baseline",
+            gap: 12,
+            flexWrap: "wrap",
+            marginBottom: 12,
+          }}
+        >
+          <Title level={5} style={{ margin: 0 }}>
+            日汇总
+          </Title>
+          <span style={{ color: "#8c8c8c", fontSize: 13, lineHeight: 1.5 }}>
+            新客充值金额/用户数按注册数用户统计全部成功充值；老客广告归因充值、总广告归因充值中老客部分仍只统计最终点击广告7*24以内的数据
+          </span>
+        </div>
         <Table<NewFullDailyRow>
           columns={columns}
           dataSource={tableData}
