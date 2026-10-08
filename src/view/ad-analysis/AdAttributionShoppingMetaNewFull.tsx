@@ -34,6 +34,7 @@ type NewFullPayExportContext = {
 type NewFullPayAmountRow = {
   user_id: string;
   user_name?: string;
+  register_pre_click_time: string;
   click_time: string;
   register_time: string;
   clicked_ad: string;
@@ -373,6 +374,7 @@ function AdAttributionShoppingMetaNewFull() {
             allRows.push({
               user_id: String(item.user_id ?? item.uid ?? "-"),
               user_name: String(item.user_name ?? ""),
+              register_pre_click_time: String(item.register_pre_click_time ?? "-"),
               click_time: String(item.click_time ?? "-"),
               register_time: String(item.register_time ?? "-"),
               clicked_ad: String(item.clicked_ad ?? "-"),
@@ -397,8 +399,12 @@ function AdAttributionShoppingMetaNewFull() {
             label: "用户 id",
             value: (r) => (r.user_name ? `${r.user_id}(${r.user_name})` : r.user_id),
           },
+          {
+            label: "注册前点击广告的时间",
+            value: (r) => formatTimeForCsv(r.register_pre_click_time),
+          },
           { label: "注册时间", value: (r) => formatTimeForCsv(r.register_time) },
-          { label: "点击广告时间", value: (r) => formatTimeForCsv(r.click_time) },
+          { label: "充值订单前发生的点击广告时间", value: (r) => formatTimeForCsv(r.click_time) },
           { label: "点击的广告", value: (r) => r.clicked_ad },
           { label: "充值时间", value: (r) => formatTimeForCsv(r.pay_time) },
           { label: "有效充值金额", value: (r) => usd(r.pay_amount) },

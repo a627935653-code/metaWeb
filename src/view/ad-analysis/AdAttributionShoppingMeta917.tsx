@@ -1,14 +1,29 @@
 import useFetch from "@/hooks/useFetch";
 import { ReloadOutlined } from "@ant-design/icons";
 import { useQuery } from "@tanstack/react-query";
-import { Button, DatePicker, Space, Table, Tooltip, Typography } from "antd";
+import { Button, DatePicker, Space, Table, Tooltip, Typography, message } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import dayjs from "dayjs";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 const { Title } = Typography;
 
 const ROAS_PAY_SUM_917_PATH = "/meta/roaspaysumContrastMeta917";
+const REGISTER_USER_LIST_917_PATH = "/meta/registerUserListContrastMeta917";
+
+type RegisterUser917Row = {
+  user_id: number;
+  register_date: string;
+  register_time: string;
+  click_time: string;
+  activation_time: string;
+  total_pay_amount: number;
+};
+
+const csvCell = (value: unknown) => {
+  const s = String(value ?? "").replace(/"/g, '""');
+  return `"${s}"`;
+};
 
 type AdShopping917Summary = {
   spend: number;
@@ -112,6 +127,7 @@ function AdAttributionShoppingMeta917() {
   const [tableData, setTableData] = useState<AdShopping917DailyRow[]>([]);
   const [summaryData, setSummaryData] = useState<AdShopping917Summary>(emptySummary);
   const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0 });
+  const [registerExporting, setRegisterExporting] = useState(false);
 
   const dailyRangeParams = useMemo(() => normalizeRange(dailyRange), [dailyRange]);
   const dailyFilterKey = useMemo(() => JSON.stringify(dailyRangeParams), [dailyRangeParams]);
@@ -503,10 +519,76 @@ function AdAttributionShoppingMeta917() {
     tableQuery.refetch();
   };
 
+  const handleExportRegisterUsers = useCallback(async () => {
+    const { start_date, end_date } = dailyRangeParams;
+    if (!start_date || !end_date) {
+      message.warning("请先选择日期范围");
+      return;
+    }
+    setRegisterExporting(true);
+    try {
+      const limit = 500;
+      let page = 1;
+      let total = 0;
+      const allRows: RegisterUser917Row[] = [];
+      do {
+        const res = await fetchPost({
+          path: REGISTER_USER_LIST_917_PATH,
+          body: JSON.stringify({
+            start_date,
+            end_date,
+            page,
+            limit,
+          }),
+        });
+        if (res?.code !== 0) {
+          throw new Error(res?.msg || "导出失败");
+        }
+        const chunk = res.data ?? [];
+        total = res.total ?? chunk.length;
+        allRows.push(...chunk);
+        if (chunk.length < limit || allRows.length >= total) {
+          break;
+        }
+        page += 1;
+      } while (page <= 200);
+
+      if (!allRows.length) {
+        message.warning("没有可导出的注册用户");
+        return;
+      }
+
+      const formatTimeForCsv = (t: string) => t.replace(/\r?\n/g, " ");
+      const cols: { label: string; value: (r: RegisterUser917Row) => string }[] = [
+        { label: "用户 id", value: (r) => String(r.user_id) },
+        { label: "注册时间", value: (r) => formatTimeForCsv(r.register_time) },
+        { label: "点击广告时间", value: (r) => formatTimeForCsv(r.click_time) },
+        { label: "激活时间", value: (r) => formatTimeForCsv(r.activation_time) },
+        { label: "目前的总充值金额", value: (r) => String(r.total_pay_amount ?? 0) },
+      ];
+      const header = cols.map((c) => c.label).join(",");
+      const body = allRows.map((row) => cols.map((c) => csvCell(c.value(row))).join(",")).join("\r\n");
+      const blob = new Blob(["\uFEFF" + header + "\r\n" + body], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `917注册用户_${start_date}_${end_date}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      message.success(`导出成功，共 ${allRows.length} 条`);
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : "导出失败");
+    } finally {
+      setRegisterExporting(false);
+    }
+  }, [dailyRangeParams, fetchPost]);
+
   return (
     <div style={{ padding: 16 }}>
       <Title level={4} style={{ margin: 0 }}>
-        9/17广告购物分析(首充)
+        9/17广告购物分析
       </Title>
 
       <div style={{ marginTop: 16 }}>
@@ -523,9 +605,14 @@ function AdAttributionShoppingMeta917() {
           <Space size={8} wrap>
             <RangePicker value={dailyRange} onChange={setDailyRange} />
           </Space>
-          <Button icon={<ReloadOutlined />} loading={loading} onClick={handleRefresh}>
-            刷新
-          </Button>
+          <Space>
+            <Button loading={registerExporting} onClick={handleExportRegisterUsers}>
+              导出注册用户
+            </Button>
+            <Button icon={<ReloadOutlined />} loading={loading} onClick={handleRefresh}>
+              刷新
+            </Button>
+          </Space>
         </div>
 
         {dailyRangeParams.start_date && dailyRangeParams.end_date ? (
