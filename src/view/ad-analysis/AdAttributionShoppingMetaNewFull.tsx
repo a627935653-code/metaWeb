@@ -344,7 +344,7 @@ function AdAttributionShoppingMetaNewFull() {
       setPayExportingKey(exportKey);
       const hideProgress = message.loading("正在导出充值明细...", 0);
       try {
-        const limit = 500;
+        const limit = 5000;
         let page = 1;
         let total = 0;
         const allRows: NewFullPayAmountRow[] = [];
@@ -359,6 +359,7 @@ function AdAttributionShoppingMetaNewFull() {
               account_ids: ctx.account_ids?.length ? ctx.account_ids : undefined,
               channels: ctx.channels?.length ? ctx.channels : undefined,
               player: ctx.player || undefined,
+              export: true,
               page,
               limit,
             }),
