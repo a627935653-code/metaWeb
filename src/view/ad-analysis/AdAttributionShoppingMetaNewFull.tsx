@@ -48,15 +48,17 @@ const csvCell = (value: unknown) => {
 };
 
 const FIELD_TIPS: Record<string, string> = {
-  date: "获客日期",
+  date: "获客日期（广告点击 LA 日，与注册数、新客 cohort 一致）",
   spend: "当日广告消耗",
-  register: "广告归因注册人数",
-  newPayUsers: "当日注册数用户中，有过成功充值的去重人数（不限充值时间与点击时间关系）",
+  register: "广告点击 LA 日归因的注册人数（注册须在点击后 24h 内；按注册日志条数计）",
+  newPayUsers:
+    "该点击日 cohort 用户中，在「注册归因那次广告点击」后 24h 内产生成功充值的去重人数（与注册 24h 窗口一致）",
   newPayRate: "新客充值用户数 ÷ 注册数",
   cpaNewPay: "广告花费 ÷ 新客充值用户数",
-  newPayAmount: "当日注册数用户的全部成功充值金额合计（不限充值时间与点击时间关系）",
+  newPayAmount:
+    "该点击日 cohort 用户，在注册归因广告点击后 24h 内的成功充值金额合计；超过 24h 的充值不计入",
   returningAdPayAmount: "老客广告归因充值金额（见页面「统计口径总说明」）",
-  totalAdPayAmount: "新客 + 老客",
+  totalAdPayAmount: "去重后的新客充值金额 + 老客广告归因充值金额（同一订单 ID 不重复累计）",
   d0NewPayAmount: "新客获客当天充值",
   d0CumulativeRoas: "D0累计充值 ÷ 广告花费",
   d3NewPayAmount: "D1～D3新增充值",
@@ -800,33 +802,43 @@ function AdAttributionShoppingMetaNewFull() {
             children: (
               <div style={{ color: "rgba(0,0,0,0.88)", fontSize: 14, lineHeight: 1.75, maxWidth: 960 }}>
                 <p style={{ margin: "0 0 12px" }}>
-                  所有时间统一使用洛杉矶时区 <strong>America/Los_Angeles</strong>。
+                  后台包含两类广告归因口径，以及一套独立的 Cohort 周期指标：
                 </p>
-                <p style={{ margin: "0 0 8px" }}>后台同时包含两种统计口径：</p>
-                <ul style={{ margin: "0 0 12px", paddingLeft: 22 }}>
+                <ul style={{ margin: "0 0 16px", paddingLeft: 22 }}>
                   <li>
-                    <strong>新客指标及 D0/D3 等周期指标</strong>：按照广告注册用户 Cohort 统计。
+                    <strong>新客广告归因</strong>：按照注册前最终广告点击后的 24 小时归因。
                   </li>
                   <li>
-                    <strong>老客广告归因充值</strong>：按照最终广告点击后 168 小时归因。
+                    <strong>老客广告归因充值</strong>：按照最终广告点击后的 168 小时归因，并排除广告点击当天注册的用户。
+                  </li>
+                  <li>
+                    <strong>D0/D3 等周期指标</strong>：用于观察注册用户的长期价值，与每日新客、老客广告归因分开统计。
                   </li>
                 </ul>
-                <p style={{ margin: "0 0 16px" }}>
-                  两种口径用途不同：前者用于观察一批注册用户的长期价值，后者用于观察广告对已注册用户充值的带动效果。
-                </p>
 
                 <Title level={5} style={{ margin: "0 0 8px", fontSize: 15 }}>
                   新客指标
                 </Title>
                 <p style={{ margin: "0 0 8px" }}>
-                  以下四个指标均以该日期的「注册数」为固定用户范围。用户一旦进入该日期的注册人数，后续无论什么时候完成首充，数据都会回填到原注册日期，因此历史数据会持续变化。
+                  用户点击广告时尚未注册，并在该次广告点击后 24 小时内完成注册，则认定为该广告带来的新客，并归因到广告点击日期。
                 </p>
-                <ol style={{ margin: "0 0 16px", paddingLeft: 22 }}>
+                <p style={{ margin: "0 0 8px" }}>
+                  用户注册前存在多次广告点击时，归因到距离注册时间最近的一次有效点击。
+                </p>
+                <p style={{ margin: "0 0 8px" }}>以下指标均按照该口径统计：</p>
+                <ul style={{ margin: "0 0 12px", paddingLeft: 22 }}>
                   <li>新客充值用户数</li>
                   <li>新客充值转化率</li>
                   <li>CPA（新客充值）</li>
                   <li>新客充值金额</li>
-                </ol>
+                </ul>
+                <p style={{ margin: "0 0 8px" }}>
+                  新客充值仅统计该用户在新客 24 小时归因窗口内产生的成功真实充值。超过 24
+                  小时产生的充值，不继续累计到该日期的新客充值金额中。
+                </p>
+                <p style={{ margin: "0 0 16px" }}>
+                  用户不会永久锁定为新客。以后再次点击广告时，如果其注册日期早于新的广告点击日期，可以按照老客广告归因规则统计。
+                </p>
 
                 <Title level={5} style={{ margin: "0 0 8px", fontSize: 15 }}>
                   老客广告归因充值
@@ -834,22 +846,38 @@ function AdAttributionShoppingMetaNewFull() {
                 <p style={{ margin: "0 0 8px" }}>
                   <strong>老客广告归因充值金额</strong>
                 </p>
-                <ol style={{ margin: "0 0 16px", paddingLeft: 22 }}>
-                  <li>
-                    用户最早注册时间早于该次广告点击时间（含同一洛杉矶自然日，按注册与点击的具体时刻比较；须严格早于），并在该次点击后
-                    7×24 小时（168 小时）内产生的充值。无论该笔是否为首次充值，均计入老客广告归因充值金额。
-                  </li>
-                  <li>充值前存在多次广告点击时，归因到距离充值时间最近的一次点击。</li>
+                <p style={{ margin: "0 0 8px" }}>同时满足以下条件的充值计入老客广告归因充值：</p>
+                <ul style={{ margin: "0 0 16px", paddingLeft: 22 }}>
+                  <li>用户的洛杉矶注册日期早于最终广告点击日期。</li>
+                  <li>广告点击当天注册的用户全部排除，不计入老客。</li>
+                  <li>充值发生在最终广告点击后 7×24 小时（168 小时）内。</li>
+                  <li>充值前存在多次广告点击时，归因到距离充值时间最近的一次有效点击。</li>
                   <li>归因日期按照广告点击日期统计，不按照充值日期统计。</li>
                   <li>超过最终广告点击 168 小时的充值不计入。</li>
-                  <li>每笔充值在老客广告归因口径中只能归因给一条广告。</li>
-                </ol>
+                  <li>
+                    无论该笔充值是否为用户首次充值，只要满足以上条件，均可计入老客广告归因充值。
+                  </li>
+                </ul>
+
+                <Title level={5} style={{ margin: "0 0 8px", fontSize: 15 }}>
+                  新客与老客去重
+                </Title>
+                <p style={{ margin: "0 0 8px" }}>新客与老客广告归因必须相互排除：</p>
+                <ul style={{ margin: "0 0 16px", paddingLeft: 22 }}>
+                  <li>广告点击当天注册的用户，只能按照新客口径统计，不能进入当天的老客数据。</li>
+                  <li>每笔充值以充值订单 ID 作为唯一标识，只能归因一次。</li>
+                  <li>同一笔充值不能同时进入新客充值金额和老客广告归因充值金额。</li>
+                  <li>总广告归因充值＝去重后的新客充值金额＋老客广告归因充值金额。</li>
+                </ul>
 
                 <Title level={5} style={{ margin: "0 0 8px", fontSize: 15 }}>
                   D0/D3 周期指标
                 </Title>
+                <p style={{ margin: "0 0 8px" }}>
+                  D0、D3 以及后续 D7、D15、D30 指标，按照注册用户 Cohort 独立统计，用于观察该批注册用户的长期充值价值。
+                </p>
                 <p style={{ margin: 0 }}>
-                  D0、D3 以及后续 D7、D15、D30 指标，均以该日期的注册用户为固定统计范围，不受用户后续点击其他广告影响。
+                  Cohort 周期指标可以持续累计用户后续充值，但不参与每日新客、老客广告归因金额的计算，也不能与每日广告归因充值直接相加。
                 </p>
               </div>
             ),

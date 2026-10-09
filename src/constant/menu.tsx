@@ -60,7 +60,7 @@ export const RouteList: MenuItemType[] = [
       },
       {
         key: "AdAttributionShoppingMeta917",
-        label: "9/17广告购物分析",
+        label: "9/17广告购物分析(首充)",
         component: <AdAttributionShoppingMeta917 />,
       },
       {

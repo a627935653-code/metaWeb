@@ -308,13 +308,8 @@ function AdAttributionShoppingMeta917() {
         render: (_value: unknown, record) => {
           const register = toNumber(record.register) || 0;
           const activation = toNumber(record.activation) || 0;
-          const attributedRegister = toNumber(record.attributedRegister) || 0;
-          const attributedActivation = toNumber(record.attributedActivation) || 0;
-          const tooltipText = `${formatNumber(register - attributedRegister)}/${formatNumber(
-            activation - attributedActivation
-          )}`;
           return (
-            <Tooltip title={tooltipText}>
+            <Tooltip title="注册数按广告点击 LA 日归纳；须在点击后 24h 内完成注册，且 ad_content_id 在当日首充 Meta 名单内">
               <span>{`${formatNumber(register)}/${formatNumber(activation)}`}</span>
             </Tooltip>
           );
@@ -458,7 +453,11 @@ function AdAttributionShoppingMeta917() {
         ],
       },
       {
-        title: "注册转化率(UV)",
+        title: (
+          <Tooltip title="分子：点击 LA 日归因且进首充名单的注册 uuid 去重；分母：同规则下 UserLog(513) 的 uuid 去重（按广告点击 LA 日 + 当日 type=2 名单）">
+            <span>注册转化率(UV)</span>
+          </Tooltip>
+        ),
         dataIndex: "registerRate",
         key: "registerRate",
         width: 130,
@@ -588,7 +587,7 @@ function AdAttributionShoppingMeta917() {
   return (
     <div style={{ padding: 16 }}>
       <Title level={4} style={{ margin: 0 }}>
-        9/17广告购物分析
+        9/17广告购物分析(首充)
       </Title>
 
       <div style={{ marginTop: 16 }}>
