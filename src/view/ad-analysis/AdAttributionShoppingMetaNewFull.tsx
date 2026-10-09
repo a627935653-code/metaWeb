@@ -36,6 +36,7 @@ type NewFullPayAmountRow = {
   user_name?: string;
   register_pre_click_time: string;
   click_time: string;
+  last_back_pack_gap_to_click?: string;
   register_time: string;
   clicked_ad: string;
   pay_time: string;
@@ -378,6 +379,7 @@ function AdAttributionShoppingMetaNewFull() {
               user_name: String(item.user_name ?? ""),
               register_pre_click_time: String(item.register_pre_click_time ?? "-"),
               click_time: String(item.click_time ?? "-"),
+              last_back_pack_gap_to_click: String(item.last_back_pack_gap_to_click ?? "-"),
               register_time: String(item.register_time ?? "-"),
               clicked_ad: String(item.clicked_ad ?? "-"),
               pay_time: String(item.pay_time ?? "-"),
@@ -407,10 +409,18 @@ function AdAttributionShoppingMetaNewFull() {
           },
           { label: "注册时间", value: (r) => formatTimeForCsv(r.register_time) },
           { label: "充值订单前发生的点击广告时间", value: (r) => formatTimeForCsv(r.click_time) },
+        ];
+        if (ctx.amount_type === "returning") {
+          cols.push({
+            label: "最后背包操作距离点击广告时间",
+            value: (r) => r.last_back_pack_gap_to_click ?? "-",
+          });
+        }
+        cols.push(
           { label: "点击的广告", value: (r) => r.clicked_ad },
           { label: "充值时间", value: (r) => formatTimeForCsv(r.pay_time) },
-          { label: "有效充值金额", value: (r) => usd(r.pay_amount) },
-        ];
+          { label: "有效充值金额", value: (r) => usd(r.pay_amount) }
+        );
         const header = cols.map((c) => c.label).join(",");
         const body = allRows.map((row) => cols.map((c) => csvCell(c.value(row))).join(",")).join("\r\n");
         const blob = new Blob(["\uFEFF" + header + "\r\n" + body], { type: "text/csv;charset=utf-8;" });
