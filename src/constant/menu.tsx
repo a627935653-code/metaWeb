@@ -5,6 +5,7 @@ import PlantAnlyser from "@/view/plant-anlyser";
 // import AdAttributionShopping from "@/view/ad-analysis/AdAttributionShopping";
 // import AdAttributionRegister from "@/view/ad-analysis/AdAttributionRegister";
 import AdAttributionShoppingMeta from "@/view/ad-analysis/AdAttributionShoppingMeta";
+import AdAttributionShoppingMetaCopy from "@/view/ad-analysis/AdAttributionShoppingMetaCopy";
 import AdAttributionRegisterMeta from "@/view/ad-analysis/AdAttributionRegisterMeta";
 import Personnel from "@/view/personnel";
 import AdManagement from "@/view/ad-management";
@@ -57,6 +58,11 @@ export const RouteList: MenuItemType[] = [
         key: "AdAttributionShoppingMeta",
         label: "购物广告分析(首充)",
         component: <AdAttributionShoppingMeta />,
+      },
+      {
+        key: "AdAttributionShoppingMetaCopy",
+        label: "新购物广告分析(首充-点击时间新统计)",
+        component: <AdAttributionShoppingMetaCopy />,
       },
       {
         key: "AdAttributionShoppingMeta917",
